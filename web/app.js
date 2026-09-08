@@ -1,4 +1,4 @@
-const video = document.querySelector("#video");
+const APP_VERSION = "0.1.3";\nconst video = document.querySelector("#video");
 const overlay = document.querySelector("#overlay");
 const ctx = overlay.getContext("2d");
 const cameraBtn = document.querySelector("#cameraBtn");
@@ -249,3 +249,4 @@ function draw(points){
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js").catch(()=>{});
 }
+\nconst versionEl=document.querySelector("#version");\nif(versionEl) versionEl.textContent=`v${APP_VERSION}`;\n
