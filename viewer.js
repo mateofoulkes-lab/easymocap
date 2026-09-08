@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { BODY_BONES,HAND_CHANNELS,MODEL_FACE_SHAPES,BODY_ROTATION_FORMAT,assertTake } from "./core/spec.js?v=0.5.0";
+import { BODY_BONES,HAND_CHANNELS,MODEL_FACE_SHAPES,BODY_ROTATION_FORMAT,assertTake } from "./core/spec.js?v=0.5.4";
 
 const $=id=>document.getElementById(id);
 const ui={
@@ -9,7 +9,7 @@ const ui={
   audio:$("audio"),playButton:$("playButton"),scrub:$("scrub"),timeLabel:$("timeLabel"),summary:$("summary"),
   validation:$("validation"),errorPanel:$("errorPanel"),errorText:$("errorText")
 };
-let modelRoot=null,bodyTake=null,faceTake=null,audioUrl=null,boneMap=new Map(),morphMeshes=[],restLocal=new Map(),playing=false;
+let modelRoot=null,bodyTake=null,faceTake=null,audioUrl=null,boneMap=new Map(),morphMeshes=[],restLocal=new Map(),bodyReference=new Map(),playing=false;
 
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07090c);
 const camera=new THREE.PerspectiveCamera(45,1,.01,100);camera.position.set(2.4,1.6,3.8);
@@ -33,7 +33,7 @@ async function loadModel(url,revoke=false){
 ui.modelInput.addEventListener("change",async()=>{
   clearError();try{const f=ui.modelInput.files?.[0];if(f)await loadModel(URL.createObjectURL(f),true)}catch(e){showError(e)}
 });
-ui.bodyInput.addEventListener("change",async()=>{clearError();try{bodyTake=await readTake(ui.bodyInput.files?.[0],"body");validateBodyTake();updateReady()}catch(e){showError(e)}});
+ui.bodyInput.addEventListener("change",async()=>{clearError();try{bodyTake=await readTake(ui.bodyInput.files?.[0],"body");validateBodyTake();buildBodyReference();updateReady();applyAt(0)}catch(e){showError(e)}});
 ui.faceInput.addEventListener("change",async()=>{clearError();try{faceTake=await readTake(ui.faceInput.files?.[0],"face");updateReady()}catch(e){showError(e)}});
 ui.audioInput.addEventListener("change",()=>{
   const f=ui.audioInput.files?.[0];if(!f)return;if(audioUrl)URL.revokeObjectURL(audioUrl);
@@ -57,10 +57,47 @@ function validateBodyTake(){
   if(bodyTake.specVersion==="1.1"&&fmt!==BODY_ROTATION_FORMAT)throw new Error(`Formato corporal inesperado: ${fmt||"sin formato"}`);
 }
 
+function buildBodyReference(){
+  bodyReference=new Map();
+  const first=bodyTake?.timeline?.frames?.[0];
+  if(!first)return;
+  if(first.root?.rotation)bodyReference.set("Root",new THREE.Quaternion(...first.root.rotation).normalize());
+  for(const name of BODY_BONES){
+    if(name==="Root")continue;
+    const q=first.bones?.[name]?.rotation;
+    if(q)bodyReference.set(name,new THREE.Quaternion(...q).normalize());
+  }
+}
+
+function relativeQuat(name,q){
+  if(!q)return null;
+  const ref=bodyReference.get(name);
+  if(!ref)return q;
+  return ref.clone().invert().multiply(q).normalize();
+}
+
 function prepareModel(){
   boneMap=new Map();morphMeshes=[];restLocal=new Map();
   modelRoot.traverse(o=>{if(o.isBone)boneMap.set(o.name,o);if(o.isMesh&&o.morphTargetDictionary)morphMeshes.push(o)});
   for(const [name,bone] of boneMap)restLocal.set(name,bone.quaternion.clone());
+  attachRigidHeadParts();
+}
+
+function attachRigidHeadParts(){
+  const head=boneMap.get("Head");
+  if(!head)return;
+  const matches=[];
+  modelRoot.traverse(o=>{
+    if(o===head||o.isBone||o.isSkinnedMesh)return;
+    const n=(o.name||"").toUpperCase();
+    if(n.includes("OJO")||n.includes("EYE")||n.includes("DIENTE")||n.includes("TEETH"))matches.push(o);
+  });
+  modelRoot.updateMatrixWorld(true);
+  for(const o of matches){
+    if(o.parent===head)continue;
+    head.attach(o);
+  }
+  head.updateMatrixWorld(true);
 }
 function validateModel(){
   ui.validation.innerHTML="";
@@ -98,7 +135,8 @@ function scalarAt(a,b,alpha,key){const av=a?.[key],bv=b?.[key];if(av==null&&bv==
 
 function applyDelta(name,q){
   const bone=boneMap.get(name),rest=restLocal.get(name);if(!bone||!rest||!q)return;
-  bone.quaternion.copy(rest).multiply(q).normalize();
+  const rel=relativeQuat(name,q);
+  bone.quaternion.copy(rest).multiply(rel).normalize();
 }
 function applyBody(s){
   if(!s)return;const {a,b,alpha}=s;
@@ -131,4 +169,4 @@ function animate(){
 
 resize();animate();
 ui.summary.textContent="Cargando castor_em2.glb…";
-loadModel("./castor_em2.glb?v=0.5.0").catch(e=>{ui.summary.textContent="No pude cargar el modelo de referencia.";showError(e)});
+loadModel("./castor_em2.glb?v=0.5.4").catch(e=>{ui.summary.textContent="No pude cargar el modelo de referencia.";showError(e)});
