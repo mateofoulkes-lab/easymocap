@@ -3,7 +3,7 @@ import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import {TransformControls} from "three/addons/controls/TransformControls.js";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 
-const MODEL_URL="./castor4-skinned.glb?v=0.2.1", TAKE_URL="./easymocap-1788892224948.json", STORE="easymocap-retarget-map-v1";
+const MODEL_URL="./castor4-skinned.glb?v=0.2.2", TAKE_URL="./easymocap-1788892224948.json", STORE="easymocap-retarget-map-v1";
 const MP={nose:0,l_shoulder:11,r_shoulder:12,l_elbow:13,r_elbow:14,l_wrist:15,r_wrist:16,l_pinky:17,r_pinky:18,l_index:19,r_index:20,l_thumb:21,r_thumb:22,l_hip:23,r_hip:24,l_knee:25,r_knee:26,l_ankle:27,r_ankle:28,l_heel:29,r_heel:30,l_toe:31,r_toe:32};
 const DEFAULT_MAP={hips:"CC_Base_Pelvis",spine:"CC_Base_Spine01",chest:"CC_Base_Spine02",neck:"CC_Base_NeckTwist01",head:"CC_Base_Head",l_upper_arm:"CC_Base_L_Upperarm",r_upper_arm:"CC_Base_R_Upperarm",l_forearm:"CC_Base_L_Forearm",r_forearm:"CC_Base_R_Forearm",l_hand:"CC_Base_L_Hand",r_hand:"CC_Base_R_Hand",l_thigh:"CC_Base_L_Thigh",r_thigh:"CC_Base_R_Thigh",l_shin:"CC_Base_L_Calf",r_shin:"CC_Base_R_Calf",l_foot:"CC_Base_L_Foot",r_foot:"CC_Base_R_Foot",l_toe:"CC_Base_L_ToeBase",r_toe:"CC_Base_R_ToeBase"};
 const ORDER=Object.keys(DEFAULT_MAP);
@@ -46,7 +46,53 @@ function buildTargetOverlay(){for(const m of targetMeshes.values())targetScene.r
 function updateTargetOverlay(){const a=new THREE.Vector3(),b=new THREE.Vector3(),q=new THREE.Quaternion();for(const bone of targetBones){const m=targetMeshes.get(bone.name);bone.getWorldPosition(a);const child=bone.children.find(x=>x.isBone);if(child)child.getWorldPosition(b);else{bone.getWorldQuaternion(q);b.copy(a).add(new THREE.Vector3(0,.04,0).applyQuaternion(q))}place(m,a,b)}highlights()}
 function captureRest(){rest.clear();for(const k of ORDER){const bone=targetByName.get(mapping[k]);if(!bone)continue;const child=bone.children.find(x=>x.isBone);const dir=child&&child.position.lengthSq()>1e-8?child.position.clone().normalize():new THREE.Vector3(0,1,0);rest.set(k,{bone,quat:bone.quaternion.clone(),dir})}}
 function aim(k,world){const r=rest.get(k);if(!r||world.lengthSq()<1e-8)return;const pq=new THREE.Quaternion();if(r.bone.parent)r.bone.parent.getWorldQuaternion(pq);const local=world.clone().normalize().applyQuaternion(pq.invert()),delta=new THREE.Quaternion().setFromUnitVectors(r.dir.clone(),local);r.bone.quaternion.copy(r.quat).multiply(delta)}
-function applyFrame(f){if(!f||!model)return;updateSource(f);const lS=mpv(f,"l_shoulder"),rS=mpv(f,"r_shoulder"),lH=mpv(f,"l_hip"),rH=mpv(f,"r_hip"),s=mid(lS,rS),h=mid(lH,rH),hips=targetByName.get(mapping.hips);if(hips&&firstHips)hips.position.copy(h.clone().sub(firstHips).multiplyScalar(rootScale));const n=mpv(f,"nose");aim("spine",s.clone().sub(h));aim("chest",s.clone().sub(h));aim("neck",n.clone().sub(s));aim("head",n.clone().sub(s));aim("l_upper_arm",mpv(f,"l_elbow").sub(lS));aim("r_upper_arm",mpv(f,"r_elbow").sub(rS));aim("l_forearm",mpv(f,"l_wrist").sub(mpv(f,"l_elbow")));aim("r_forearm",mpv(f,"r_wrist").sub(mpv(f,"r_elbow")));aim("l_hand",mid(mpv(f,"l_index"),mpv(f,"l_pinky")).sub(mpv(f,"l_wrist")));aim("r_hand",mid(mpv(f,"r_index"),mpv(f,"r_pinky")).sub(mpv(f,"r_wrist")));aim("l_thigh",mpv(f,"l_knee").sub(lH));aim("r_thigh",mpv(f,"r_knee").sub(rH));aim("l_shin",mpv(f,"l_ankle").sub(mpv(f,"l_knee")));aim("r_shin",mpv(f,"r_ankle").sub(mpv(f,"r_knee")));aim("l_foot",mpv(f,"l_toe").sub(mpv(f,"l_ankle")));aim("r_foot",mpv(f,"r_toe").sub(mpv(f,"r_ankle")));aim("l_toe",mpv(f,"l_toe").sub(mpv(f,"l_heel")));aim("r_toe",mpv(f,"r_toe").sub(mpv(f,"r_heel"))}
+function applyFrame(f){
+  if(!f || !model) return;
+
+  updateSource(f);
+
+  const lS = mpv(f,"l_shoulder");
+  const rS = mpv(f,"r_shoulder");
+  const lH = mpv(f,"l_hip");
+  const rH = mpv(f,"r_hip");
+  const s = mid(lS,rS);
+  const h = mid(lH,rH);
+  const hips = targetByName.get(mapping.hips);
+
+  if(hips && firstHips){
+    hips.position.copy(
+      h.clone().sub(firstHips).multiplyScalar(rootScale)
+    );
+  }
+
+  const n = mpv(f,"nose");
+
+  aim("spine", s.clone().sub(h));
+  aim("chest", s.clone().sub(h));
+  aim("neck", n.clone().sub(s));
+  aim("head", n.clone().sub(s));
+
+  aim("l_upper_arm", mpv(f,"l_elbow").sub(lS));
+  aim("r_upper_arm", mpv(f,"r_elbow").sub(rS));
+
+  aim("l_forearm", mpv(f,"l_wrist").sub(mpv(f,"l_elbow")));
+  aim("r_forearm", mpv(f,"r_wrist").sub(mpv(f,"r_elbow")));
+
+  aim("l_hand", mid(mpv(f,"l_index"),mpv(f,"l_pinky")).sub(mpv(f,"l_wrist")));
+  aim("r_hand", mid(mpv(f,"r_index"),mpv(f,"r_pinky")).sub(mpv(f,"r_wrist")));
+
+  aim("l_thigh", mpv(f,"l_knee").sub(lH));
+  aim("r_thigh", mpv(f,"r_knee").sub(rH));
+
+  aim("l_shin", mpv(f,"l_ankle").sub(mpv(f,"l_knee")));
+  aim("r_shin", mpv(f,"r_ankle").sub(mpv(f,"r_knee")));
+
+  aim("l_foot", mpv(f,"l_toe").sub(mpv(f,"l_ankle")));
+  aim("r_foot", mpv(f,"r_toe").sub(mpv(f,"r_ankle")));
+
+  aim("l_toe", mpv(f,"l_toe").sub(mpv(f,"l_heel")));
+  aim("r_toe", mpv(f,"r_toe").sub(mpv(f,"r_heel")));
+}
 function valid(t){return (t.frames||[]).filter(f=>Array.isArray(f.world_landmarks)&&f.world_landmarks.length>=33)}
 function frameAt(t){if(!frames.length)return null;let lo=0,hi=frames.length-1;while(lo<hi){const m=(lo+hi)>>1;if(Number(frames[m].timestamp)<t)lo=m+1;else hi=m}return frames[lo]}
 function loadTake(t){frames=valid(t);if(!frames.length)throw new Error("JSON sin frames 3D completos");duration=Number(t.duration||frames.at(-1).timestamp||0);playhead=0;const f=frames[0];firstHips=mid(mpv(f,"l_hip"),mpv(f,"r_hip"));const tracked=Math.max(mid(mpv(f,"l_shoulder"),mpv(f,"r_shoulder")).distanceTo(firstHips),1e-4);let rr=1;const h=targetByName.get(mapping.hips),hd=targetByName.get(mapping.head);if(h&&hd){const a=new THREE.Vector3(),b=new THREE.Vector3();h.getWorldPosition(a);hd.getWorldPosition(b);rr=Math.max(a.distanceTo(b),1e-3)}rootScale=rr/Math.max(tracked*2.2,1e-4);captureRest();applyFrame(f);updateUI()}
