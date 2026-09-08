@@ -18,10 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Blender
+      - name: Install Blender 4.5.13 LTS
         run: |
-          sudo apt-get update
-          sudo apt-get install -y blender python3-numpy
+          curl -L -o blender.tar.xz https://download.blender.org/release/Blender4.5/blender-4.5.13-linux-x64.tar.xz
+          tar -xf blender.tar.xz
+          echo "$PWD/blender-4.5.13-linux-x64" >> "$GITHUB_PATH"
 
       - name: Build skinned GLB
         run: blender --background --factory-startup --python tools/build_skinned_castor.py
