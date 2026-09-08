@@ -34,3 +34,13 @@ jobs:
           test -f viewer.html
           test -f viewer.css
           test -f viewer.js
+          test -s castor_em2.glb
+      - name: Check EM2 reference GLB header
+        run: |
+          python - <<'PY'
+          import struct
+          raw=open("castor_em2.glb","rb").read(12)
+          magic,version,length=struct.unpack("<4sII",raw)
+          assert magic==b"glTF" and version==2
+          print("castor_em2.glb: valid GLB v2 header")
+          PY
