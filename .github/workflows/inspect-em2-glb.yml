@@ -117,3 +117,5 @@ jobs:
                   if n.get("children"): flags.append(f"children={len(n['children'])}")
                   print(f"{i:03d} {n['name']} {' '.join(flags)}")
           PY
+
+# inspection workflow active
