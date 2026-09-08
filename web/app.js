@@ -1,300 +1,293 @@
-const APP_VERSION = "0.1.7";
-const video = document.querySelector("#video");
-const overlay = document.querySelector("#overlay");
+const APP_VERSION = "0.1.8";
+
+const video = document.getElementById("video");
+const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
-const cameraBtn = document.querySelector("#cameraBtn");
-const recordBtn = document.querySelector("#recordBtn");
-const downloadBtn = document.querySelector("#downloadBtn");
-const audioInput = document.querySelector("#audioInput");
-const audioName = document.querySelector("#audioName");
-const audio = document.querySelector("#audio");
-const statusEl = document.querySelector("#status");
-const countdown = document.querySelector("#countdown");
-const footLock = document.querySelector("#footLock");
+const cameraBtn = document.getElementById("cameraBtn");
+const cameraFacingBtn = document.getElementById("cameraFacingBtn");
+const recordBtn = document.getElementById("recordBtn");
+const downloadBtn = document.getElementById("downloadBtn");
+const audioInput = document.getElementById("audioInput");
+const audioName = document.getElementById("audioName");
+const audio = document.getElementById("audio");
+const statusEl = document.getElementById("status");
+const countdown = document.getElementById("countdown");
+const footLock = document.getElementById("footLock");
+const versionEl = document.getElementById("version");
+
+versionEl.textContent = "v" + APP_VERSION;
 
 let stream = null;
+let facing = "user";
 let landmarker = null;
-let FilesetResolver = null;
-let PoseLandmarker = null;
 let running = false;
+let raf = 0;
 let recording = false;
 let frames = [];
 let audioFile = null;
 let startPerf = 0;
-let raf = 0;
 
 const connections = [
-[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],
-[23,25],[25,27],[27,29],[29,31],[24,26],[26,28],[28,30],[30,32]
+  [11,12],[11,13],[13,15],[12,14],[14,16],
+  [11,23],[12,24],[23,24],
+  [23,25],[25,27],[27,29],[29,31],
+  [24,26],[26,28],[28,30],[30,32]
 ];
 
-async function initPose(){
-  if(landmarker) return;
-  statusEl.textContent = "Cargando detector corporal…";
-
-  if(!FilesetResolver || !PoseLandmarker){
-    const visionModule = await import(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm"
-    );
-    FilesetResolver = visionModule.FilesetResolver;
-    PoseLandmarker = visionModule.PoseLandmarker;
+cameraBtn.addEventListener("click", async () => {
+  if (stream) {
+    stopCamera();
+    return;
   }
+  await openCamera();
+});
 
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
-  );
-  landmarker = await PoseLandmarker.createFromOptions(vision,{
-    baseOptions:{
-      modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-      delegate:"GPU"
-    },
-    runningMode:"VIDEO",
-    numPoses:1,
-    minPoseDetectionConfidence:.55,
-    minPosePresenceConfidence:.55,
-    minTrackingConfidence:.55
-  });
-  statusEl.textContent = "● Detector listo";
-  applyMirrorState();
-}
+cameraFacingBtn.addEventListener("click", async () => {
+  facing = facing === "user" ? "environment" : "user";
+  cameraFacingBtn.textContent = facing === "user" ? "Usar trasera" : "Usar frontal";
 
-audioInput.addEventListener("change",()=>{
-  audioFile = audioInput.files?.[0] || null;
-  if(!audioFile) return;
+  if (stream) {
+    stopCamera(false);
+    await openCamera();
+  }
+});
+
+audioInput.addEventListener("change", () => {
+  audioFile = audioInput.files && audioInput.files[0] ? audioInput.files[0] : null;
+  if (!audioFile) return;
   audioName.textContent = audioFile.name;
   audio.src = URL.createObjectURL(audioFile);
   updateReady();
 });
 
-cameraBtn.addEventListener("click", async ()=>{
-  if(stream){
-    stopCamera();
-    return;
-  }
+recordBtn.addEventListener("click", async () => {
+  if (recording || !audioFile || !stream || !landmarker) return;
 
-  if(!window.isSecureContext){
-    statusEl.textContent="La cámara requiere HTTPS";
-    alert("EasyMocap necesita abrirse por HTTPS para que el navegador permita usar la cámara.");
-    return;
-  }
+  frames = [];
+  downloadBtn.disabled = true;
 
-  if(!navigator.mediaDevices?.getUserMedia){
-    statusEl.textContent="Este navegador no permite acceso a cámara";
-    alert("Este navegador no expone acceso a la cámara. Probá Chrome, Edge o Safari actualizado.");
-    return;
-  }
-
-  try{
-    statusEl.textContent="Esperando permiso de cámara…";
-    cameraBtn.disabled=true;
-
-    // Pedimos permiso ANTES de cargar MediaPipe para que el navegador
-    // muestre inmediatamente el diálogo de acceso a cámara.
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{
-        facingMode:"user",
-        width:{ideal:1280},
-        height:{ideal:720}
-      },
-      audio:false
-    });
-
-    video.srcObject = stream;
-    await video.play();
-    syncOverlayToVideo();
-    applyMirrorState();
-    running = true;
-    cameraBtn.textContent="Cerrar cámara";
-    statusEl.textContent="● Cámara activa · cargando tracking…";
-    loop();
-    updateReady();
-
-    try{
-      await initPose();
-    }catch(poseErr){
-      console.error("Pose init failed", poseErr);
-      statusEl.textContent="● Cámara activa · error cargando tracking";
-      alert(
-        "La cámara ya tiene permiso y está funcionando, pero falló la carga del detector corporal.
-
-" +
-        (poseErr?.message || poseErr)
-      );
-    }
-  }catch(err){
-    stream?.getTracks().forEach(t=>t.stop());
-    stream=null;
-
-    const name=err?.name || "";
-    if(name==="NotAllowedError" || name==="PermissionDeniedError"){
-      statusEl.textContent="Permiso de cámara bloqueado";
-      alert(
-        "El navegador bloqueó la cámara.
-
-" +
-        "Entrá a los permisos del sitio y habilitá Cámara para EasyMocap, luego tocá nuevamente “Abrir cámara”."
-      );
-    }else if(name==="NotFoundError"){
-      statusEl.textContent="No encontré una cámara";
-      alert("No encontré ninguna cámara disponible en este dispositivo.");
-    }else{
-      statusEl.textContent="No pude abrir la cámara";
-      alert("No pude abrir la cámara.
-
-"+(err?.message || err));
-    }
-  }finally{
-    cameraBtn.disabled=false;
-  }
-});
-
-recordBtn.addEventListener("click", async ()=>{
-  if(recording || !audioFile || !stream) return;
-  frames=[];
-  downloadBtn.disabled=true;
-  for(const n of [3,2,1]){
-    countdown.textContent=n;
+  for (const n of [3,2,1]) {
+    countdown.textContent = String(n);
     countdown.classList.remove("hidden");
     await wait(1000);
   }
+
   countdown.classList.add("hidden");
-  audio.currentTime=0;
-  startPerf=performance.now();
-  recording=true;
-  recordBtn.textContent="Grabando…";
+  audio.currentTime = 0;
+  startPerf = performance.now();
+  recording = true;
+  recordBtn.textContent = "Grabando…";
   await audio.play();
 });
 
 audio.addEventListener("ended", finishRecording);
 
-downloadBtn.addEventListener("click",()=>{
-  if(!frames.length) return;
-  const take={
-    format:"easymocap-mobile-take-v1",
-    rig:"esqueleto-fase2.fbx",
-    audio:audioFile?.name || null,
-    footLock:footLock.checked,
-    duration:frames.at(-1)?.timestamp || 0,
+downloadBtn.addEventListener("click", () => {
+  if (!frames.length) return;
+
+  const take = {
+    format: "easymocap-mobile-take-v1",
+    rig: "esqueleto-fase2.fbx",
+    audio: audioFile ? audioFile.name : null,
+    footLock: footLock.checked,
+    duration: frames.length ? frames[frames.length - 1].timestamp : 0,
     frames
   };
-  const blob=new Blob([JSON.stringify(take)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=`easymocap-${Date.now()}.json`;
+
+  const blob = new Blob([JSON.stringify(take)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "easymocap-" + Date.now() + ".json";
   a.click();
   URL.revokeObjectURL(a.href);
 });
 
-function finishRecording(){
-  if(!recording) return;
-  recording=false;
-  recordBtn.textContent="Grabar";
-  downloadBtn.disabled=frames.length===0;
-  statusEl.textContent=`Take listo · ${frames.length} frames`;
+async function openCamera() {
+  try {
+    statusEl.textContent = "Pidiendo permiso de cámara…";
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("getUserMedia no está disponible en este navegador.");
+    }
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: facing } },
+      audio: false
+    });
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.setAttribute("playsinline", "");
+    await video.play();
+
+    applyMirror();
+    syncOverlay();
+    cameraBtn.textContent = "Cerrar cámara";
+    statusEl.textContent = "● Cámara activa · cargando tracking…";
+
+    try {
+      await initPose();
+      running = true;
+      loop();
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = "● Cámara activa · tracking no disponible";
+    }
+
+    updateReady();
+  } catch (err) {
+    stream = null;
+    const name = err && err.name ? err.name : "Error";
+    const msg = err && err.message ? err.message : String(err);
+    statusEl.textContent = "Error cámara: " + name;
+    alert("Error al abrir cámara: " + name + "\n\n" + msg);
+  }
 }
 
-function updateReady(){
-  recordBtn.disabled=!(audioFile && stream);
+function stopCamera(updateLabel = true) {
+  running = false;
+  if (raf) cancelAnimationFrame(raf);
+  raf = 0;
+
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+  }
+
+  stream = null;
+  video.srcObject = null;
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  if (updateLabel) {
+    cameraBtn.textContent = "Abrir cámara";
+    statusEl.textContent = "Cámara apagada";
+  }
+
+  updateReady();
 }
 
-function stopCamera(){
-  running=false;
-  cancelAnimationFrame(raf);
-  stream?.getTracks().forEach(t=>t.stop());
-  stream=null;
-  video.srcObject=null;
-  cameraBtn.textContent="Abrir cámara";
-  recordBtn.disabled=true;
-  statusEl.textContent="Cámara apagada";
+async function initPose() {
+  if (landmarker) return;
+
+  const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm");
+  const vision = await visionModule.FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+  );
+
+  landmarker = await visionModule.PoseLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.55,
+    minPosePresenceConfidence: 0.55,
+    minTrackingConfidence: 0.55
+  });
+
+  statusEl.textContent = "● Tracking listo";
 }
 
-function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+function loop() {
+  if (!running) return;
 
-function loop(){
-  if(!running) return;
-  const now=performance.now();
-  if(video.readyState>=2 && landmarker){
-    if(!overlay.width || !overlay.height) syncOverlayToVideo();
-    const result=landmarker.detectForVideo(video,now);
-    draw(result.landmarks?.[0]);
-    const world=result.worldLandmarks?.[0];
-    if(world?.length){
-      statusEl.textContent=recording?"● Grabando movimiento":"● Cuerpo detectado";
-      if(recording){
+  const now = performance.now();
+
+  if (video.readyState >= 2 && landmarker) {
+    const result = landmarker.detectForVideo(video, now);
+    const points = result.landmarks && result.landmarks[0] ? result.landmarks[0] : null;
+    const world = result.worldLandmarks && result.worldLandmarks[0] ? result.worldLandmarks[0] : null;
+
+    drawPose(points);
+
+    if (world && world.length) {
+      statusEl.textContent = recording ? "● Grabando movimiento" : "● Cuerpo detectado";
+
+      if (recording) {
         frames.push({
-          timestamp:(now-startPerf)/1000,
-          image_landmarks:(result.landmarks?.[0]||[]).map(pack),
-          world_landmarks:world.map(pack)
+          timestamp: (now - startPerf) / 1000,
+          image_landmarks: (points || []).map(pack),
+          world_landmarks: world.map(pack)
         });
       }
-    }else{
-      statusEl.textContent="● No detecto cuerpo completo";
+    } else {
+      statusEl.textContent = "● No detecto cuerpo completo";
     }
   }
-  raf=requestAnimationFrame(loop);
+
+  raf = requestAnimationFrame(loop);
 }
 
-function pack(p){
-  return {x:p.x,y:p.y,z:p.z,visibility:p.visibility ?? 1};
-}
+function drawPose(points) {
+  syncOverlay();
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  if (!points) return;
 
-function draw(points){
-  ctx.clearRect(0,0,overlay.width,overlay.height);
-  if(!points) return;
-  const sx=overlay.width, sy=overlay.height;
-  ctx.lineWidth=4;
-  ctx.strokeStyle="#75e6a4";
-  ctx.fillStyle="#ffffff";
-  for(const [a,b] of connections){
-    const p=points[a], q=points[b];
-    if(!p||!q) continue;
-    if((p.visibility ?? 1) < .35 || (q.visibility ?? 1) < .35) continue;
-    ctx.beginPath();ctx.moveTo(p.x*sx,p.y*sy);ctx.lineTo(q.x*sx,q.y*sy);ctx.stroke();
+  const w = overlay.width;
+  const h = overlay.height;
+
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#75e6a4";
+  ctx.fillStyle = "#ffffff";
+
+  for (const pair of connections) {
+    const p = points[pair[0]];
+    const q = points[pair[1]];
+    if (!p || !q) continue;
+    if ((p.visibility || 1) < 0.35 || (q.visibility || 1) < 0.35) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(p.x * w, p.y * h);
+    ctx.lineTo(q.x * w, q.y * h);
+    ctx.stroke();
   }
-  for(const p of points){
-    if((p.visibility ?? 1) < .35) continue;
-    ctx.beginPath();ctx.arc(p.x*sx,p.y*sy,4,0,Math.PI*2);ctx.fill();
+
+  for (const p of points) {
+    if ((p.visibility || 1) < 0.35) continue;
+    ctx.beginPath();
+    ctx.arc(p.x * w, p.y * h, 4, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+function syncOverlay() {
+  const rect = video.getBoundingClientRect();
+  const w = Math.max(1, Math.round(rect.width));
+  const h = Math.max(1, Math.round(rect.height));
+  if (overlay.width !== w) overlay.width = w;
+  if (overlay.height !== h) overlay.height = h;
 }
 
-const versionEl=document.querySelector("#version");
-if(versionEl) versionEl.textContent=`v${APP_VERSION}`;
-
-function applyMirrorState(){
-  const mirrored = (window.__easyMocapFacing || "user") === "user";
+function applyMirror() {
+  const mirrored = facing === "user";
   video.classList.toggle("mirror", mirrored);
   overlay.classList.toggle("mirror", mirrored);
 }
 
-function syncOverlayToVideo(){
-  const rect = video.getBoundingClientRect();
-  overlay.width = Math.max(1, Math.round(rect.width));
-  overlay.height = Math.max(1, Math.round(rect.height));
+function pack(p) {
+  return {
+    x: p.x,
+    y: p.y,
+    z: p.z,
+    visibility: p.visibility == null ? 1 : p.visibility
+  };
 }
-window.addEventListener("resize", syncOverlayToVideo);
-window.addEventListener("orientationchange", ()=>setTimeout(syncOverlayToVideo, 250));
 
-window.addEventListener("easymocap-camera-ready", async ()=>{
-  try{
-    stream = window.__easyMocapStream || stream;
-    if(!stream) return;
-    syncOverlayToVideo();
-    applyMirrorState();
-    running = true;
-    if(!landmarker) await initPose();
-    if(!raf) loop();
-    updateReady();
-  }catch(err){
-    console.error("Tracking init failed", err);
-    statusEl.textContent = "● Cámara activa · tracking no disponible";
-  }
-});
+function updateReady() {
+  recordBtn.disabled = !(audioFile && stream && landmarker);
+}
 
-window.addEventListener("easymocap-facing-changed", ()=>{
-  applyMirrorState();
-  setTimeout(syncOverlayToVideo, 100);
-});
+function finishRecording() {
+  if (!recording) return;
+  recording = false;
+  recordBtn.textContent = "Grabar";
+  downloadBtn.disabled = frames.length === 0;
+  statusEl.textContent = "Take listo · " + frames.length + " frames";
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+window.addEventListener("resize", syncOverlay);
+window.addEventListener("orientationchange", () => setTimeout(syncOverlay, 250));
