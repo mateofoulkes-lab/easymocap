@@ -1,42 +1,46 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>EasyMocap Viewer</title>
-  <link rel="stylesheet" href="./web/viewer.css?v=0.1.3">
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.167.1/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.167.1/examples/jsm/"
-    }
-  }
-  </script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EasyMocap Retarget Editor</title>
+<link rel="stylesheet" href="./web/viewer.css?v=0.2.0">
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.167.1/build/three.module.js","three/addons/":"https://unpkg.com/three@0.167.1/examples/jsm/"}}
+</script>
 </head>
 <body>
-  <div id="hud">
-    <div class="topline">
-      <strong>EasyMocap Viewer</strong>
-      <span>v0.1.3</span>
-    </div>
-    <div id="status">Cargando…</div>
-    <div class="controls">
-      <button id="playBtn">▶ Play</button>
-      <button id="pauseBtn">⏸ Pausa</button>
-      <button id="resetBtn">↺ Reset</button>
-      <label class="filebtn">Otro JSON<input id="jsonInput" type="file" accept=".json,application/json"></label>
-    </div>
-    <div class="timeline">
-      <input id="scrubber" type="range" min="0" max="1" step="0.001" value="0">
-      <span id="timeLabel">0.00 / 0.00</span>
-    </div>
-    <details>
-      <summary>Debug rig</summary>
-      <pre id="debug"></pre>
-    </details>
+<header class="toolbar">
+  <div class="brand"><strong>EasyMocap Retarget Editor</strong><span class="version">v0.2.0</span><span id="status">Cargando…</span></div>
+  <div class="toolbar-actions">
+    <button id="playBtn">▶ Play</button><button id="pauseBtn">⏸ Pausa</button><button id="resetBtn">↺ Reset</button>
+    <label>Modo <select id="transformMode"><option value="translate">Mover (G)</option><option value="rotate">Rotar (R)</option></select></label>
+    <label>Editar <select id="transformTarget"><option value="source">Esqueleto mocap</option><option value="mesh">Mesh completo</option><option value="rig">Esqueleto del mesh</option></select></label>
+    <label class="filebtn">Otro JSON<input id="jsonInput" type="file" accept=".json,application/json"></label>
   </div>
-  <canvas id="viewer"></canvas>
-  <script type="module" src="./web/viewer.js?v=0.1.3"></script>
+  <div class="timeline"><input id="scrubber" type="range" min="0" max="1" step="0.001" value="0"><span id="timeLabel">0.00 / 0.00</span></div>
+</header>
+
+<main class="editor-grid">
+  <section class="panel">
+    <div class="panel-title"><strong>1 · Esqueleto mocap</strong><span>Click hueso · rueda zoom · medio rota · derecho panea</span></div>
+    <div class="viewport"><canvas id="sourceCanvas"></canvas></div>
+    <div class="bone-list-wrap"><div class="list-title">Huesos mocap</div><div id="sourceBoneList" class="bone-list"></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title"><strong>2 · Mesh + esqueleto</strong><span id="selectedMapping">Sin selección</span></div>
+    <div class="viewport"><canvas id="targetCanvas"></canvas></div>
+    <div class="mapping-bar">
+      <label>Asignar a <select id="targetBoneSelect"></select></label>
+      <button id="assignBtn">Asignar seleccionado</button>
+      <button id="resetMappingBtn">Restaurar mapping</button>
+    </div>
+    <div class="bone-list-wrap"><div class="list-title">Huesos del rig</div><div id="targetBoneList" class="bone-list target"></div></div>
+  </section>
+</main>
+
+<div class="hintbar"><span><b>G</b> mover</span><span><b>R</b> rotar</span><span>click izquierdo selecciona</span><span>mapping guardado automáticamente</span></div>
+<script type="module" src="./web/viewer.js?v=0.2.0"></script>
 </body>
 </html>
