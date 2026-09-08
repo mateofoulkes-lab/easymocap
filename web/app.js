@@ -1,4 +1,4 @@
-const APP_VERSION = "0.1.8";
+const APP_VERSION = "0.1.9";
 
 const video = document.getElementById("video");
 const overlay = document.getElementById("overlay");
@@ -131,7 +131,9 @@ async function openCamera() {
       loop();
     } catch (err) {
       console.error(err);
-      statusEl.textContent = "● Cámara activa · tracking no disponible";
+      const msg = err && err.message ? err.message : String(err);
+      statusEl.textContent = "Tracking no disponible";
+      alert("Error de tracking:\n\n" + msg);
     }
 
     updateReady();
@@ -168,24 +170,61 @@ function stopCamera(updateLabel = true) {
 async function initPose() {
   if (landmarker) return;
 
-  const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm");
-  const vision = await visionModule.FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
-  );
+  statusEl.textContent = "● Cargando tracking…";
 
-  landmarker = await visionModule.PoseLandmarker.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-      delegate: "GPU"
-    },
+  let visionModule;
+  try {
+    visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm");
+  } catch (err) {
+    throw new Error("No pude cargar MediaPipe Tasks Vision: " + (err && err.message ? err.message : err));
+  }
+
+  let vision;
+  try {
+    vision = await visionModule.FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+    );
+  } catch (err) {
+    throw new Error("No pude cargar los archivos WASM de MediaPipe: " + (err && err.message ? err.message : err));
+  }
+
+  const commonOptions = {
     runningMode: "VIDEO",
     numPoses: 1,
-    minPoseDetectionConfidence: 0.55,
-    minPosePresenceConfidence: 0.55,
-    minTrackingConfidence: 0.55
-  });
+    minPoseDetectionConfidence: 0.5,
+    minPosePresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  };
 
-  statusEl.textContent = "● Tracking listo";
+  const modelAssetPath =
+    "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
+  try {
+    landmarker = await visionModule.PoseLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath,
+        delegate: "GPU"
+      },
+      ...commonOptions
+    });
+    statusEl.textContent = "● Tracking listo (GPU)";
+    return;
+  } catch (gpuErr) {
+    console.warn("GPU delegate failed; retrying on CPU/WASM", gpuErr);
+  }
+
+  try {
+    landmarker = await visionModule.PoseLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath
+      },
+      ...commonOptions
+    });
+    statusEl.textContent = "● Tracking listo (CPU)";
+  } catch (cpuErr) {
+    const msg = cpuErr && cpuErr.message ? cpuErr.message : String(cpuErr);
+    throw new Error("MediaPipe no pudo iniciar ni con GPU ni con CPU: " + msg);
+  }
 }
 
 function loop() {
