@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>EasyMocap Retarget Editor</title>
-<link rel="stylesheet" href="./web/viewer.css?v=0.2.0">
+<link rel="stylesheet" href="./web/viewer.css?v=0.2.1">
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.167.1/build/three.module.js","three/addons/":"https://unpkg.com/three@0.167.1/examples/jsm/"}}
 </script>
 </head>
 <body>
 <header class="toolbar">
-  <div class="brand"><strong>EasyMocap Retarget Editor</strong><span class="version">v0.2.0</span><span id="status">Cargando…</span></div>
+  <div class="brand"><strong>EasyMocap Retarget Editor</strong><span class="version">v0.2.1</span><span id="status">Cargando…</span></div>
   <div class="toolbar-actions">
     <button id="playBtn">▶ Play</button><button id="pauseBtn">⏸ Pausa</button><button id="resetBtn">↺ Reset</button>
     <label>Modo <select id="transformMode"><option value="translate">Mover (G)</option><option value="rotate">Rotar (R)</option></select></label>
@@ -41,6 +41,17 @@
 </main>
 
 <div class="hintbar"><span><b>G</b> mover</span><span><b>R</b> rotar</span><span>click izquierdo selecciona</span><span>mapping guardado automáticamente</span></div>
-<script type="module" src="./web/viewer.js?v=0.2.0"></script>
+<script>
+window.addEventListener("error", function(e){
+  var s=document.getElementById("status");
+  if(s) s.textContent="Error JS: "+(e.message||"desconocido");
+});
+window.addEventListener("unhandledrejection", function(e){
+  var s=document.getElementById("status");
+  var r=e.reason;
+  if(s) s.textContent="Error async: "+(r&&r.message?r.message:String(r));
+});
+</script>
+<script type="module" src="./web/viewer.js?v=0.2.1"></script>
 </body>
 </html>
