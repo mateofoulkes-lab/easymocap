@@ -1,8 +1,8 @@
-import { loadLatestSession, clearLatestSession } from "./core/session-store.js?v=0.5.5";
+import { loadLatestSession, clearLatestSession } from "./core/session-store.js?v=0.5.7";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { BODY_BONES,HAND_CHANNELS,MODEL_FACE_SHAPES,BODY_ROTATION_FORMAT,assertTake } from "./core/spec.js?v=0.5.5";
+import { BODY_BONES,HAND_CHANNELS,MODEL_FACE_SHAPES,BODY_ROTATION_FORMAT,assertTake } from "./core/spec.js?v=0.5.7";
 
 const $=id=>document.getElementById(id);
 const ui={
@@ -12,7 +12,7 @@ const ui={
   sessionStatus:$("sessionStatus"),clearSessionButton:$("clearSessionButton")
 };
 
-let modelRoot=null,bodyTake=null,faceTake=null,audioUrl=null,boneMap=new Map(),morphMeshes=[],restLocal=new Map(),bodyReference=new Map();
+let modelRoot=null,bodyTake=null,faceTake=null,audioUrl=null,boneMap=new Map(),morphMeshes=[],restLocal=new Map(),restWorld=new Map(),bodyReference=new Map(),bodyDirectionReference=new Map();
 let playing=false,playhead=0,internalStartTime=0,internalStartPerf=0;
 
 const scene=new THREE.Scene();
@@ -155,13 +155,20 @@ function validateBodyTake(){
 
 function buildBodyReference(){
   bodyReference=new Map();
+  bodyDirectionReference=new Map();
   const first=bodyTake?.timeline?.frames?.[0];
   if(!first)return;
   if(first.root?.rotation)bodyReference.set("Root",new THREE.Quaternion(...first.root.rotation).normalize());
   for(const name of BODY_BONES){
     if(name==="Root")continue;
-    const q=first.bones?.[name]?.rotation;
+    const bone=first.bones?.[name];
+    const q=bone?.rotation;
     if(q)bodyReference.set(name,new THREE.Quaternion(...q).normalize());
+    const d=bone?.direction;
+    if(Array.isArray(d)&&d.length===3){
+      const v=new THREE.Vector3(d[0],d[1],d[2]);
+      if(v.lengthSq()>1e-8)bodyDirectionReference.set(name,v.normalize());
+    }
   }
 }
 function relativeQuat(name,q){
@@ -175,11 +182,16 @@ function prepareModel(){
   boneMap=new Map();
   morphMeshes=[];
   restLocal=new Map();
+  restWorld=new Map();
   modelRoot.traverse(o=>{
     if(o.isBone)boneMap.set(o.name,o);
     if(o.isMesh&&o.morphTargetDictionary)morphMeshes.push(o);
   });
-  for(const [name,bone] of boneMap)restLocal.set(name,bone.quaternion.clone());
+  modelRoot.updateMatrixWorld(true);
+  for(const [name,bone] of boneMap){
+    restLocal.set(name,bone.quaternion.clone());
+    restWorld.set(name,bone.getWorldQuaternion(new THREE.Quaternion()));
+  }
   attachRigidHeadParts();
 }
 
@@ -317,15 +329,60 @@ function applyDelta(name,q){
   const rel=relativeQuat(name,q);
   bone.quaternion.copy(rest).multiply(rel).normalize();
 }
+function directionAt(a,b,alpha,name){
+  const da=a.bones?.[name]?.direction,db=b.bones?.[name]?.direction;
+  if(!da&&!db)return null;
+  const av=da||db,bv=db||da;
+  const v=new THREE.Vector3(
+    THREE.MathUtils.lerp(av[0],bv[0],alpha),
+    THREE.MathUtils.lerp(av[1],bv[1],alpha),
+    THREE.MathUtils.lerp(av[2],bv[2],alpha)
+  );
+  return v.lengthSq()>1e-8?v.normalize():null;
+}
+
+function hasDirectionRetarget(){
+  return bodyDirectionReference.size>=8;
+}
+
+function applyDirectionBone(name,currentDirection){
+  const bone=boneMap.get(name);
+  const ref=bodyDirectionReference.get(name);
+  const rest=restWorld.get(name);
+  if(!bone||!ref||!rest||!currentDirection)return;
+
+  const swing=new THREE.Quaternion().setFromUnitVectors(ref,currentDirection);
+  const desiredWorld=rest.clone().premultiply(swing).normalize();
+
+  const parent=bone.parent;
+  const parentWorld=parent?parent.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
+  const local=parentWorld.invert().multiply(desiredWorld).normalize();
+  bone.quaternion.copy(local);
+  bone.updateMatrixWorld(true);
+}
+
 function applyBody(s){
   if(!s)return;
   const {a,b,alpha}=s;
-  if(a.root?.rotation||b.root?.rotation)applyDelta("Root",qAt(a.root?.rotation,b.root?.rotation,alpha));
-  for(const name of BODY_BONES){
-    if(name==="Root")continue;
-    const qa=a.bones?.[name]?.rotation,qb=b.bones?.[name]?.rotation;
-    if(qa||qb)applyDelta(name,qAt(qa,qb,alpha));
+
+  if(hasDirectionRetarget()){
+    const root=boneMap.get("Root"),rootRest=restLocal.get("Root");
+    if(root&&rootRest)root.quaternion.copy(rootRest);
+
+    for(const name of BODY_BONES){
+      if(name==="Root")continue;
+      const d=directionAt(a,b,alpha,name);
+      if(d)applyDirectionBone(name,d);
+    }
+  }else{
+    if(a.root?.rotation||b.root?.rotation)applyDelta("Root",qAt(a.root?.rotation,b.root?.rotation,alpha));
+    for(const name of BODY_BONES){
+      if(name==="Root")continue;
+      const qa=a.bones?.[name]?.rotation,qb=b.bones?.[name]?.rotation;
+      if(qa||qb)applyDelta(name,qAt(qa,qb,alpha));
+    }
   }
+
   for(const name of HAND_CHANNELS)setMorph(name,scalarAt(a.hands,b.hands,alpha,name));
 }
 function applyFace(s){
@@ -422,6 +479,6 @@ function animate(){
 resize();
 animate();
 ui.summary.textContent="Cargando castor_em2.glb…";
-loadModel("./castor_em2.glb?v=0.5.5")
+loadModel("./castor_em2.glb?v=0.5.7")
   .then(loadTemporarySession)
   .catch(e=>{ui.summary.textContent="No pude cargar el modelo de referencia.";showError(e)});

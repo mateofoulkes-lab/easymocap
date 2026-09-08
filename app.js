@@ -1,9 +1,9 @@
-import { saveLatestTake } from "./core/session-store.js?v=0.5.6";
-import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.6";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.6";
-import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.6";
+import { saveLatestTake } from "./core/session-store.js?v=0.5.7";
+import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.7";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.7";
+import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.7";
 
-const APP_VERSION="0.5.6";
+const APP_VERSION="0.5.7";
 const $=(id)=>document.getElementById(id);
 const ui={
   camera:$("camera"),overlay:$("overlay"),cameraPlaceholder:$("cameraPlaceholder"),
@@ -21,6 +21,7 @@ const faceSmooth={
   EM2_MouthOpen:null,EM2_MouthWidth:null,EM2_MouthCorner_L:null,EM2_MouthCorner_R:null
 };
 const bodyRotationSmooth={root:null,bones:{}};
+const bodyDirectionSmooth={};
 
 function setStatus(s){ui.status.textContent=s}
 function clearError(){ui.errorPanel.hidden=true;ui.errorText.textContent=""}
@@ -195,7 +196,20 @@ function storeBodyFrame(frame){
   const bones={};
   for(const [name,bone] of Object.entries(frame.bones)){
     bodyRotationSmooth.bones[name]=smoothQuat(bodyRotationSmooth.bones[name],bone.rotation,.42);
-    bones[name]={rotation:qRound(bodyRotationSmooth.bones[name]),length:round(bone.length,5),confidence:round(bone.confidence,3)};
+    let dir=bone.direction;
+    if(dir){
+      const prev=bodyDirectionSmooth[name];
+      if(prev)dir=prev.map((x,i)=>x+(dir[i]-x)*.42);
+      const dl=Math.hypot(...dir)||1;
+      dir=dir.map(x=>x/dl);
+      bodyDirectionSmooth[name]=dir;
+    }
+    bones[name]={
+      rotation:qRound(bodyRotationSmooth.bones[name]),
+      direction:dir?dir.map(x=>round(x,6)):null,
+      length:round(bone.length,5),
+      confidence:round(bone.confidence,3)
+    };
   }
   const hands={};
   for(const [key,value] of Object.entries(frame.hands)){
@@ -226,7 +240,7 @@ function storeFaceFrame(frame){
 function resetSmoothing(){
   for(const k of Object.keys(handSmooth))handSmooth[k]=null;
   for(const k of Object.keys(faceSmooth))faceSmooth[k]=null;
-  bodyRotationSmooth.root=null;bodyRotationSmooth.bones={};
+  bodyRotationSmooth.root=null;bodyRotationSmooth.bones={};for(const k of Object.keys(bodyDirectionSmooth))delete bodyDirectionSmooth[k];
 }
 function round(v,d){const p=10**d;return Math.round(v*p)/p}
 function mix(a,b,t){return a+(b-a)*t}

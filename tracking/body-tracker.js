@@ -202,7 +202,7 @@ function deriveSkeleton(world,image){
   };
   const bones={};
   for(const [name,[a,b,confidence]] of Object.entries(defs)){
-    bones[name]={rotation:rotations[name],length:len(sub(b,a)),confidence};
+    bones[name]={rotation:rotations[name],direction:norm(sub(b,a)),length:len(sub(b,a)),confidence};
   }
 
   return {
