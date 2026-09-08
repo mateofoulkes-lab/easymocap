@@ -21,7 +21,7 @@ jobs:
       - name: Install Blender
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender
+          sudo apt-get install -y blender python3-numpy
 
       - name: Build skinned GLB
         run: blender --background --factory-startup --python tools/build_skinned_castor.py
@@ -30,6 +30,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ ! -f castor4-skinned.glb ]; then
+            echo "castor4-skinned.glb was not generated"
+            exit 1
+          fi
           git add castor4-skinned.glb
           if git diff --cached --quiet; then
             echo "No generated changes"
