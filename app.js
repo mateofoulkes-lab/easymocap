@@ -1,7 +1,7 @@
-import { createTake } from "./core/spec.js?v=0.2.0";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.2.0";
+import { createTake } from "./core/spec.js?v=0.3.0";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.3.0";\nimport { FaceTracker } from "./tracking/face-tracker.js?v=0.3.0";
 
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.3.0";
 const $ = (id) => document.getElementById(id);
 
 const ui = {
@@ -28,7 +28,7 @@ let audioUrl = null;
 let audioFile = null;
 let currentTake = null;
 let recording = false;
-let bodyTracker = null;
+let bodyTracker = null;\nlet faceTracker = null;
 let trackerLoopId = 0;
 let lastVideoTime = -1;
 let lastInferenceAt = 0;
@@ -57,26 +57,38 @@ function clearError() {
 }
 
 function setTrackerLabels(result) {
-  if (mode !== "body") {
-    ui.trackingStatus.textContent = "Tracking: Face pendiente";
-    ui.handStatus.textContent = "Manos: —";
+  if (mode === "body") {
+    if (!bodyTracker?.ready) {
+      ui.trackingStatus.textContent = "Tracking: sin cargar";
+      ui.handStatus.textContent = "Manos: —";
+      return;
+    }
+    if (!result?.tracked) {
+      ui.trackingStatus.textContent = "Cuerpo: no detectado";
+      ui.handStatus.textContent = "Manos: no detectadas";
+      return;
+    }
+    ui.trackingStatus.textContent = "Cuerpo: OK";
+    const h = result.frame.hands;
+    const left = h.EM2_HandOpen_L == null ? "L —" : `L ${Math.round(h.EM2_HandOpen_L*100)}%`;
+    const right = h.EM2_HandOpen_R == null ? "R —" : `R ${Math.round(h.EM2_HandOpen_R*100)}%`;
+    ui.handStatus.textContent = `Manos: ${left} · ${right}`;
     return;
   }
-  if (!bodyTracker?.ready) {
-    ui.trackingStatus.textContent = "Tracking: sin cargar";
-    ui.handStatus.textContent = "Manos: —";
+
+  if (!faceTracker?.ready) {
+    ui.trackingStatus.textContent = "Face: sin cargar";
+    ui.handStatus.textContent = "Expresión: —";
     return;
   }
   if (!result?.tracked) {
-    ui.trackingStatus.textContent = "Cuerpo: no detectado";
-    ui.handStatus.textContent = "Manos: no detectadas";
+    ui.trackingStatus.textContent = "Face: no detectada";
+    ui.handStatus.textContent = "Expresión: —";
     return;
   }
-  ui.trackingStatus.textContent = "Cuerpo: OK";
-  const h = result.frame.hands;
-  const left = h.EM2_HandOpen_L == null ? "L —" : `L ${Math.round(h.EM2_HandOpen_L*100)}%`;
-  const right = h.EM2_HandOpen_R == null ? "R —" : `R ${Math.round(h.EM2_HandOpen_R*100)}%`;
-  ui.handStatus.textContent = `Manos: ${left} · ${right}`;
+  const c = result.frame.channels;
+  ui.trackingStatus.textContent = "Face: OK";
+  ui.handStatus.textContent = `Boca ${Math.round(c.EM2_MouthOpen*100)}% · Blink L/R ${Math.round(c.EM2_Blink_L*100)}/${Math.round(c.EM2_Blink_R*100)}`;
 }
 
 window.addEventListener("error", (event) => showError(event.error || event.message));
@@ -90,8 +102,11 @@ document.querySelectorAll(".mode[data-mode]").forEach((button) => {
     clearOverlay();
     setTrackerLabels(null);
     setStatus(`Modo ${mode === "body" ? "Body" : "Face"} listo.`);
-    if (mode === "body" && stream) {
-      try { await ensureBodyTracker(); } catch (error) { showError(error); }
+    if (stream) {
+      try {
+        if (mode === "body") await ensureBodyTracker();
+        else await ensureFaceTracker();
+      } catch (error) { showError(error); }
     }
   });
 });
@@ -135,6 +150,7 @@ ui.cameraButton.addEventListener("click", async () => {
     ui.cameraButton.textContent = "Apagar cámara";
 
     if (mode === "body") await ensureBodyTracker();
+    else await ensureFaceTracker();
     startTrackerLoop();
     setStatus("Cámara lista.");
     refreshReadyState();
@@ -150,6 +166,7 @@ ui.recordButton.addEventListener("click", async () => {
   try {
     if (!audioFile || !stream) throw new Error("Necesito audio y cámara antes de grabar.");
     if (mode === "body" && !bodyTracker?.ready) await ensureBodyTracker();
+    if (mode === "face" && !faceTracker?.ready) await ensureFaceTracker();
 
     ui.recordButton.disabled = true;
     ui.downloadButton.hidden = true;
@@ -167,7 +184,7 @@ ui.recordButton.addEventListener("click", async () => {
       videoWidth:ui.camera.videoWidth,
       videoHeight:ui.camera.videoHeight,
       userAgent:navigator.userAgent,
-      tracker: mode === "body" ? "MediaPipe Tasks Vision 1.0.1" : null
+      tracker: "MediaPipe Tasks Vision 1.0.1"
     };
 
     resetSmoothing();
@@ -210,20 +227,39 @@ async function ensureBodyTracker() {
   setStatus("Tracking Body listo.");
 }
 
+async function ensureFaceTracker() {
+  if (faceTracker?.ready) return;
+  setStatus("Cargando tracking facial…");
+  ui.trackingStatus.textContent = "Face: cargando modelo…";
+  faceTracker ||= new FaceTracker();
+  await faceTracker.init();
+  ui.trackingStatus.textContent = "Face: listo";
+  setStatus("Tracking Face listo.");
+}
+
 function startTrackerLoop() {
   if (trackerLoopId) cancelAnimationFrame(trackerLoopId);
   const loop = (now) => {
     trackerLoopId = requestAnimationFrame(loop);
-    if (!stream || ui.camera.readyState < 2 || mode !== "body" || !bodyTracker?.ready) return;
+    if (!stream || ui.camera.readyState < 2) return;
+    const trackerReady = mode === "body" ? bodyTracker?.ready : faceTracker?.ready;
+    if (!trackerReady) return;
     if (ui.camera.currentTime === lastVideoTime || now-lastInferenceAt < 34) return;
     lastVideoTime = ui.camera.currentTime;
     lastInferenceAt = now;
 
     try {
-      latestTracking = bodyTracker.detect(ui.camera,Math.round(now));
-      bodyTracker.draw(ui.overlay,ui.camera,latestTracking);
-      setTrackerLabels(latestTracking);
-      if (recording && latestTracking.tracked) storeBodyFrame(latestTracking.frame);
+      if (mode === "body") {
+        latestTracking = bodyTracker.detect(ui.camera,Math.round(now));
+        bodyTracker.draw(ui.overlay,ui.camera,latestTracking);
+        setTrackerLabels(latestTracking);
+        if (recording && latestTracking.tracked) storeBodyFrame(latestTracking.frame);
+      } else {
+        latestTracking = faceTracker.detect(ui.camera,Math.round(now));
+        faceTracker.draw(ui.overlay,ui.camera,latestTracking);
+        setTrackerLabels(latestTracking);
+        if (recording && latestTracking.tracked) storeFaceFrame(latestTracking.frame);
+      }
     } catch (error) {
       cancelAnimationFrame(trackerLoopId);
       trackerLoopId = 0;
@@ -271,8 +307,22 @@ function storeBodyFrame(frame) {
   });
 }
 
+function storeFaceFrame(frame) {
+  if (!currentTake || mode !== "face") return;
+  const t = ui.audio.currentTime;
+  if (!Number.isFinite(t) || t < 0 || Math.abs(t-lastFrameStoredAt) < 0.015) return;
+  lastFrameStoredAt = t;
+  const channels = {};
+  for (const [key,value] of Object.entries(frame.channels)) {
+    faceSmooth[key] = faceSmooth[key] == null ? value : mix(faceSmooth[key],value,0.4);
+    channels[key] = round(faceSmooth[key],4);
+  }
+  currentTake.timeline.frames.push({ t:round(t,4), channels });
+}
+
 function resetSmoothing() {
   for (const key of Object.keys(handSmooth)) handSmooth[key] = null;
+  for (const key of Object.keys(faceSmooth)) faceSmooth[key] = null;
 }
 
 function round(value,digits) {
@@ -306,7 +356,7 @@ function finishRecording(completed=true) {
       ? round(currentTake.timeline.frameCount/currentTake.timeline.duration,2)
       : 0;
     ui.downloadButton.hidden = false;
-    setStatus(`Take Body capturado: ${currentTake.timeline.frames.length} frames · ${currentTake.timeline.averageFps} fps.`);
+    setStatus(`Take ${mode === "body" ? "Body" : "Face"} capturado: ${currentTake.timeline.frames.length} frames · ${currentTake.timeline.averageFps} fps.`);
   }
   refreshReadyState();
 }
@@ -333,7 +383,7 @@ function stopCamera() {
 
 function refreshReadyState() {
   if (recording) return;
-  const trackerReady = mode !== "body" || bodyTracker?.ready;
+  const trackerReady = mode === "body" ? bodyTracker?.ready : faceTracker?.ready;
   const ready = Boolean(stream && audioFile && Number.isFinite(ui.audio.duration) && trackerReady);
   ui.recordButton.disabled = !ready;
   if (ready) setStatus(`Listo para grabar ${mode === "body" ? "Body" : "Face"}.`);

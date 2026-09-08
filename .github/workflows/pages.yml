@@ -28,7 +28,7 @@ jobs:
           mkdir -p _site/core _site/tracking
           cp index.html styles.css app.js README.md _site/
           cp core/spec.js _site/core/
-          cp tracking/body-tracker.js _site/tracking/
+          cp tracking/body-tracker.js tracking/face-tracker.js _site/tracking/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: "_site"
