@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#111318">
   <title>EasyMocap 2</title>
-  <link rel="stylesheet" href="./styles.css?v=0.5.1">
+  <link rel="stylesheet" href="./styles.css?v=0.5.2">
 </head>
 <body>
   <header class="topbar">
     <div><h1>EasyMocap 2</h1><p>Performance capture por capas</p></div>
-    <span class="version">v0.5.1</span>
+    <span class="version">v0.5.2</span>
   </header>
   <main class="shell">
     <section class="card">
@@ -21,12 +21,12 @@
       </div>
       <div class="stage">
         <video id="camera" autoplay playsinline muted></video><canvas id="overlay" aria-hidden="true"></canvas>
-        <div id="cameraPlaceholder" class="placeholder">Cámara apagada</div><div class="camera-hint">Doble tap: cambiar cámara</div><div id="countdown" class="countdown" hidden></div>
+        <div id="cameraPlaceholder" class="placeholder">Cámara apagada</div><div id="countdown" class="countdown" hidden></div>
       </div>
       <div class="tracking-strip"><span id="trackingStatus">Tracking: sin cargar</span><span id="handStatus">Manos: —</span></div>
       <div class="controls">
         <label class="file-button"><input id="audioInput" type="file" accept="audio/*"><span>Elegir audio</span></label>
-        <button id="cameraButton">Encender cámara</button>
+        <button id="cameraButton">Encender cámara</button><button id="flipCameraButton" disabled>Girar cámara</button>
       </div>
       <div class="audio-row"><audio id="audio" controls preload="metadata"></audio><div id="audioName" class="muted">Sin audio cargado</div></div>
       <button id="recordButton" class="primary" disabled>Grabar actuación</button>
@@ -37,7 +37,7 @@
       <div id="errorPanel" class="error-panel" hidden><strong>Error</strong><pre id="errorText"></pre></div>
     </section>
   </main>
-  <script>document.getElementById("viewerButton").addEventListener("click",()=>location.href="./viewer.html?v=0.5.1");</script>
-  <script type="module" src="./app.js?v=0.5.1"></script>
+  <script>document.getElementById("viewerButton").addEventListener("click",()=>location.href="./viewer.html?v=0.5.2");</script>
+  <script type="module" src="./app.js?v=0.5.2"></script>
 </body>
 </html>

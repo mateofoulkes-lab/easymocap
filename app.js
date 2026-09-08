@@ -1,18 +1,18 @@
-import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.1";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.1";
-import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.1";
+import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.2";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.2";
+import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.2";
 
-const APP_VERSION="0.5.1";
+const APP_VERSION="0.5.2";
 const $=(id)=>document.getElementById(id);
 const ui={
   camera:$("camera"),overlay:$("overlay"),cameraPlaceholder:$("cameraPlaceholder"),
   audioInput:$("audioInput"),audio:$("audio"),audioName:$("audioName"),
-  cameraButton:$("cameraButton"),recordButton:$("recordButton"),downloadButton:$("downloadButton"),
+  cameraButton:$("cameraButton"),flipCameraButton:$("flipCameraButton"),recordButton:$("recordButton"),downloadButton:$("downloadButton"),
   countdown:$("countdown"),status:$("status"),trackingStatus:$("trackingStatus"),handStatus:$("handStatus"),
   errorPanel:$("errorPanel"),errorText:$("errorText")
 };
 
-let mode="body",stream=null,audioUrl=null,audioFile=null,currentTake=null,recording=false,cameraFacing="user",switchingCamera=false,lastStageTap=0;
+let mode="body",stream=null,audioUrl=null,audioFile=null,currentTake=null,recording=false,cameraFacing="user",switchingCamera=false;
 let bodyTracker=null,faceTracker=null,trackerLoopId=0,lastVideoTime=-1,lastInferenceAt=0,lastFrameStoredAt=-1;
 const handSmooth={EM2_HandOpen_L:null,EM2_IndexOpen_L:null,EM2_HandOpen_R:null,EM2_IndexOpen_R:null};
 const faceSmooth={
@@ -68,6 +68,8 @@ ui.audioInput.addEventListener("change",()=>{
 });
 ui.audio.addEventListener("loadedmetadata",refreshReadyState);
 ui.audio.addEventListener("error",()=>showError(new Error("El navegador no pudo cargar ese audio.")));
+
+ui.flipCameraButton.addEventListener("click",()=>switchCamera());
 
 ui.cameraButton.addEventListener("click",async()=>{
   clearError();if(stream){stopCamera();return}
@@ -202,13 +204,13 @@ function finishRecording(completed=true){
 }
 function clearOverlay(){ui.overlay.getContext("2d").clearRect(0,0,ui.overlay.width,ui.overlay.height)}
 function stopCamera(){
-  stream?.getTracks().forEach(t=>t.stop());stream=null;ui.camera.srcObject=null;ui.cameraPlaceholder.hidden=false;ui.cameraButton.textContent="Encender cámara";
+  stream?.getTracks().forEach(t=>t.stop());stream=null;ui.camera.srcObject=null;ui.cameraPlaceholder.hidden=false;ui.cameraButton.textContent="Encender cámara";ui.flipCameraButton.disabled=true;
   if(trackerLoopId)cancelAnimationFrame(trackerLoopId);trackerLoopId=0;clearOverlay();setTrackerLabels(null);setStatus("Cámara apagada.");refreshReadyState();
 }
 function refreshReadyState(){
   if(recording)return;
   const trackerReady=mode==="body"?bodyTracker?.ready:faceTracker?.ready;
   const ready=Boolean(stream&&audioFile&&Number.isFinite(ui.audio.duration)&&trackerReady);
-  ui.recordButton.disabled=!ready;if(ready)setStatus(`Listo para grabar ${mode==="body"?"Body":"Face"}.`);
+  ui.recordButton.disabled=!ready;ui.flipCameraButton.disabled=!stream||recording||switchingCamera;if(ready)setStatus(`Listo para grabar ${mode==="body"?"Body":"Face"}.`);
 }
 setTrackerLabels(null);setStatus(`EasyMocap 2 v${APP_VERSION} listo. Elegí audio y encendé la cámara.`);
