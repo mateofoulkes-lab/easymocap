@@ -13,7 +13,7 @@
     <header>
       <h1>EasyMocap</h1>
       <p>Mocap desde el celular · rig fijo: esqueleto-fase2</p>
-      <div id="version" class="version">v0.1.6</div>
+      <div id="version" class="version">v0.1.7</div>
     </header>
 
     <section class="card controls">
@@ -94,7 +94,8 @@
           await video.play();
         }
         if (cameraBtn) cameraBtn.textContent = "Cerrar cámara";
-        if (statusEl) statusEl.textContent = "● Cámara activa";
+        if (statusEl) statusEl.textContent = "● Cámara activa · iniciando tracking…";
+        window.dispatchEvent(new CustomEvent("easymocap-camera-ready"));
       } catch (err) {
         var name = err && err.name ? err.name : "Error";
         var msg = err && err.message ? err.message : String(err);
