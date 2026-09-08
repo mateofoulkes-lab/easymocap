@@ -1,9 +1,9 @@
-const VIEWER_VERSION = "0.1.1";
+const VIEWER_VERSION = "0.1.2";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const MODEL_URL="./castor4-skinned.glb";
+const MODEL_URL="./castor4-skinned.glb?v=0.1.2";
 const TAKE_URL="./easymocap-1788892224948.json";
 
 const MP={nose:0,l_shoulder:11,r_shoulder:12,l_elbow:13,r_elbow:14,l_wrist:15,r_wrist:16,l_hip:23,r_hip:24,l_knee:25,r_knee:26,l_ankle:27,r_ankle:28,l_heel:29,r_heel:30,l_toe:31,r_toe:32};
@@ -81,7 +81,7 @@ const dl=new THREE.DirectionalLight(0xffffff,1.8);
 dl.position.set(3,5,3); dl.castShadow=true; scene.add(dl);
 scene.add(new THREE.GridHelper(10,20,0x4a515c,0x242930));
 
-let model=null, skeletonHelper=null, bones={}, rest={}, frames=[], duration=0, playhead=0, playing=false, firstHips=null, rootScale=1;
+let model=null, skeletonHelper=null, bones={}, rest={}, frames=[], duration=0, playhead=0, playing=false, firstHips=null, rootScale=1;\nlet skinnedMeshCount=0;
 const clock=new THREE.Clock();
 
 function norm(name){return name.toLowerCase().replace("mixamorig:","").replace(/[^a-z0-9]/g,"");}
@@ -207,7 +207,15 @@ async function boot(){
  try{
   statusEl.textContent="Cargando castor4.glb…";
   model=(await new GLTFLoader().loadAsync(MODEL_URL)).scene;
-  model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
+  skinnedMeshCount=0;
+  model.traverse(o=>{
+   if(o.isMesh){
+    o.castShadow=true;
+    o.receiveShadow=true;
+    o.frustumCulled=false;
+   }
+   if(o.isSkinnedMesh) skinnedMeshCount++;
+  });
   scene.add(model);
   bones=buildMap(model);
   captureRest();
@@ -222,6 +230,7 @@ async function boot(){
   statusEl.textContent="Cargando take…";
   const take=await (await fetch(TAKE_URL,{cache:"no-store"})).json();
   loadTakeObject(take);
+  statusEl.textContent+=" · SkinnedMesh: "+skinnedMeshCount;
  }catch(e){
   console.error(e); statusEl.textContent="Error: "+(e.message||e);
  }
