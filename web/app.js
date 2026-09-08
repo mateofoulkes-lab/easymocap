@@ -1,4 +1,4 @@
-const APP_VERSION = "0.1.9";
+const APP_VERSION = "0.2.0";
 
 const video = document.getElementById("video");
 const overlay = document.getElementById("overlay");
@@ -173,16 +173,32 @@ async function initPose() {
   statusEl.textContent = "● Cargando tracking…";
 
   let visionModule;
-  try {
-    visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm");
-  } catch (err) {
-    throw new Error("No pude cargar MediaPipe Tasks Vision: " + (err && err.message ? err.message : err));
+  let importError = null;
+
+  for (const url of [
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/vision_bundle.mjs",
+    "https://unpkg.com/@mediapipe/tasks-vision@0.10.22-rc.20250304/vision_bundle.mjs"
+  ]) {
+    try {
+      visionModule = await import(url);
+      break;
+    } catch (err) {
+      importError = err;
+      console.warn("MediaPipe import failed:", url, err);
+    }
+  }
+
+  if (!visionModule) {
+    throw new Error(
+      "No pude cargar MediaPipe Tasks Vision desde jsDelivr ni UNPKG: " +
+      (importError && importError.message ? importError.message : importError)
+    );
   }
 
   let vision;
   try {
     vision = await visionModule.FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm"
     );
   } catch (err) {
     throw new Error("No pude cargar los archivos WASM de MediaPipe: " + (err && err.message ? err.message : err));
