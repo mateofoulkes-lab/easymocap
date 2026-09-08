@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>EasyMocap Viewer</title>
+  <link rel="stylesheet" href="./web/viewer.css?v=0.1.0">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.167.1/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.167.1/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="hud">
+    <div class="topline">
+      <strong>EasyMocap Viewer</strong>
+      <span>v0.1.0</span>
+    </div>
+    <div id="status">Cargando…</div>
+    <div class="controls">
+      <button id="playBtn">▶ Play</button>
+      <button id="pauseBtn">⏸ Pausa</button>
+      <button id="resetBtn">↺ Reset</button>
+      <label class="filebtn">Otro JSON<input id="jsonInput" type="file" accept=".json,application/json"></label>
+    </div>
+    <div class="timeline">
+      <input id="scrubber" type="range" min="0" max="1" step="0.001" value="0">
+      <span id="timeLabel">0.00 / 0.00</span>
+    </div>
+    <details>
+      <summary>Debug rig</summary>
+      <pre id="debug"></pre>
+    </details>
+  </div>
+  <canvas id="viewer"></canvas>
+  <script type="module" src="./web/viewer.js?v=0.1.0"></script>
+</body>
+</html>
