@@ -13,7 +13,7 @@
     <header>
       <h1>EasyMocap</h1>
       <p>Mocap desde el celular · rig fijo: esqueleto-fase2</p>
-      <div id="version" class="version">v0.1.4</div>
+      <div id="version" class="version">v0.1.5</div>
     </header>
 
     <section class="card controls">
@@ -39,7 +39,7 @@
     <audio id="audio" preload="auto"></audio>
 
     <section class="actions">
-      <button id="cameraBtn">Abrir cámara</button>
+      <button id="cameraBtn" type="button" onclick="window.easyMocapOpenCamera()">Abrir cámara</button>
       <button id="recordBtn" class="primary" disabled>Grabar</button>
       <button id="downloadBtn" disabled>Guardar take</button>
     </section>
@@ -51,6 +51,59 @@
     </section>
   </main>
 
-  <script type="module" src="./web/app.js?v=0.1.4"></script>
+
+  <script>
+    window.__easyMocapTapCount = 0;
+
+    window.easyMocapOpenCamera = async function () {
+      var tapCount = document.getElementById("tapCount");
+      var statusEl = document.getElementById("status");
+      var video = document.getElementById("video");
+      var cameraBtn = document.getElementById("cameraBtn");
+
+      window.__easyMocapTapCount += 1;
+      if (tapCount) tapCount.textContent = String(window.__easyMocapTapCount);
+      if (statusEl) statusEl.textContent = "Tap recibido · pidiendo cámara…";
+
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          if (statusEl) statusEl.textContent = "getUserMedia no disponible";
+          alert("Este navegador no expone navigator.mediaDevices.getUserMedia.");
+          return;
+        }
+
+        if (window.__easyMocapStream) {
+          window.__easyMocapStream.getTracks().forEach(function(t){ t.stop(); });
+          window.__easyMocapStream = null;
+          if (video) video.srcObject = null;
+          if (cameraBtn) cameraBtn.textContent = "Abrir cámara";
+          if (statusEl) statusEl.textContent = "Cámara apagada";
+          return;
+        }
+
+        var stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false
+        });
+
+        window.__easyMocapStream = stream;
+        if (video) {
+          video.srcObject = stream;
+          video.setAttribute("playsinline", "");
+          video.muted = true;
+          await video.play();
+        }
+        if (cameraBtn) cameraBtn.textContent = "Cerrar cámara";
+        if (statusEl) statusEl.textContent = "● Cámara activa";
+      } catch (err) {
+        var name = err && err.name ? err.name : "Error";
+        var msg = err && err.message ? err.message : String(err);
+        if (statusEl) statusEl.textContent = "Error cámara: " + name;
+        alert("Error al abrir cámara: " + name + "\n\n" + msg);
+      }
+    };
+  </script>
+
+  <script type="module" src="./web/app.js?v=0.1.5"></script>
 </body>
 </html>
