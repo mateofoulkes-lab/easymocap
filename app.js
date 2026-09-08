@@ -1,9 +1,9 @@
-import { saveLatestTake } from "./core/session-store.js?v=0.5.5";
-import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.5";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.5";
-import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.5";
+import { saveLatestTake } from "./core/session-store.js?v=0.5.6";
+import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.6";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.6";
+import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.6";
 
-const APP_VERSION="0.5.5";
+const APP_VERSION="0.5.6";
 const $=(id)=>document.getElementById(id);
 const ui={
   camera:$("camera"),overlay:$("overlay"),cameraPlaceholder:$("cameraPlaceholder"),
@@ -259,3 +259,9 @@ function refreshReadyState(){
   ui.recordButton.disabled=!ready;ui.flipCameraButton.disabled=!stream||recording||switchingCamera;if(ready)setStatus(`Listo para grabar ${mode==="body"?"Body":"Face"}.`);
 }
 setTrackerLabels(null);setStatus(`EasyMocap 2 v${APP_VERSION} listo. Elegí audio y encendé la cámara.`);
+
+const initialMode=new URLSearchParams(location.search).get("mode");
+if(initialMode==="body"||initialMode==="face"){
+  const target=[...document.querySelectorAll(".mode[data-mode]")].find(b=>b.dataset.mode===initialMode);
+  if(target&&mode!==initialMode)target.click();
+}
