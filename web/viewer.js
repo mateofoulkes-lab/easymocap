@@ -3,7 +3,7 @@ import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import {TransformControls} from "three/addons/controls/TransformControls.js";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 
-const MODEL_URL="./castor4-skinned.glb?v=0.2.0", TAKE_URL="./easymocap-1788892224948.json", STORE="easymocap-retarget-map-v1";
+const MODEL_URL="./castor4-skinned.glb?v=0.2.1", TAKE_URL="./easymocap-1788892224948.json", STORE="easymocap-retarget-map-v1";
 const MP={nose:0,l_shoulder:11,r_shoulder:12,l_elbow:13,r_elbow:14,l_wrist:15,r_wrist:16,l_pinky:17,r_pinky:18,l_index:19,r_index:20,l_thumb:21,r_thumb:22,l_hip:23,r_hip:24,l_knee:25,r_knee:26,l_ankle:27,r_ankle:28,l_heel:29,r_heel:30,l_toe:31,r_toe:32};
 const DEFAULT_MAP={hips:"CC_Base_Pelvis",spine:"CC_Base_Spine01",chest:"CC_Base_Spine02",neck:"CC_Base_NeckTwist01",head:"CC_Base_Head",l_upper_arm:"CC_Base_L_Upperarm",r_upper_arm:"CC_Base_R_Upperarm",l_forearm:"CC_Base_L_Forearm",r_forearm:"CC_Base_R_Forearm",l_hand:"CC_Base_L_Hand",r_hand:"CC_Base_R_Hand",l_thigh:"CC_Base_L_Thigh",r_thigh:"CC_Base_R_Thigh",l_shin:"CC_Base_L_Calf",r_shin:"CC_Base_R_Calf",l_foot:"CC_Base_L_Foot",r_foot:"CC_Base_R_Foot",l_toe:"CC_Base_L_ToeBase",r_toe:"CC_Base_R_ToeBase"};
 const ORDER=Object.keys(DEFAULT_MAP);
@@ -18,7 +18,11 @@ sourceCamera.position.set(2.4,1.7,3.5);targetCamera.position.set(2.8,1.7,4.2);so
 const sourceRoot=new THREE.Group(); sourceRoot.name="MocapSkeletonRoot"; sourceScene.add(sourceRoot);
 const modelRoot=new THREE.Group(); modelRoot.name="CharacterRoot"; targetScene.add(modelRoot);
 const sourceTransform=new TransformControls(sourceCamera,sourceCanvas), targetTransform=new TransformControls(targetCamera,targetCanvas);
-sourceScene.add(sourceTransform); targetScene.add(targetTransform); sourceTransform.attach(sourceRoot);
+const sourceTransformHelper=sourceTransform.getHelper ? sourceTransform.getHelper() : sourceTransform;
+const targetTransformHelper=targetTransform.getHelper ? targetTransform.getHelper() : targetTransform;
+sourceScene.add(sourceTransformHelper);
+targetScene.add(targetTransformHelper);
+sourceTransform.attach(sourceRoot);
 sourceTransform.addEventListener("dragging-changed",e=>sourceOrbit.enabled=!e.value); targetTransform.addEventListener("dragging-changed",e=>targetOrbit.enabled=!e.value);
 
 let model=null,rigRoot=null,targetBones=[],targetByName=new Map(),targetMeshes=new Map(),sourceMeshes=new Map(),frames=[],duration=0,playhead=0,playing=false,selectedSource="hips",selectedTarget=null,firstHips=null,rootScale=1,rest=new Map();
