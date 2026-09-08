@@ -71,14 +71,12 @@ class EasyMocapWindow(QMainWindow):
         self.audio_btn = QPushButton("Load audio")
         self.audio_btn.clicked.connect(self._load_audio)
         self.audio_label = QLabel("No audio")
-        self.fbx_btn = QPushButton("Load FBX")
-        self.fbx_btn.clicked.connect(self._load_fbx)
-        self.fbx_label = QLabel("No FBX")
+        self.rig_label = QLabel(f"Rig fijo: {self.fbx_path.name}")
+        self.rig_label.setToolTip(str(self.fbx_path))
         row.addWidget(self.audio_btn)
         row.addWidget(self.audio_label, 1)
         row.addSpacing(10)
-        row.addWidget(self.fbx_btn)
-        row.addWidget(self.fbx_label, 1)
+        row.addWidget(self.rig_label)
         layout.addLayout(row)
 
         self.video = QLabel("Camera off")
@@ -163,13 +161,6 @@ class EasyMocapWindow(QMainWindow):
         self.audio_label.setText(self.audio_path.name)
         self.player.setSource(QUrl.fromLocalFile(str(self.audio_path)))
 
-    def _load_fbx(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Open rigged FBX", "", "FBX (*.fbx)")
-        if not path:
-            return
-        self.fbx_path = Path(path)
-        self.fbx_label.setText(self.fbx_path.name)
-
     def _toggle_camera(self) -> None:
         if self.camera is not None:
             self._close_camera()
@@ -240,9 +231,6 @@ class EasyMocapWindow(QMainWindow):
             return
         if not self.audio_path:
             QMessageBox.information(self, "Missing audio", "Load an MP3 or OGG first.")
-            return
-        if not self.fbx_path:
-            QMessageBox.information(self, "Missing FBX", "Load the rigged FBX first.")
             return
         if self.camera is None:
             QMessageBox.information(self, "Camera", "Open the camera first.")
