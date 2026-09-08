@@ -1,0 +1,21 @@
+name: Inspect FBX rig
+
+on:
+  push:
+    paths:
+      - "esqueleto-fase2.fbx"
+      - "tools/inspect_fbx.py"
+      - ".github/workflows/inspect-fbx.yml"
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+      - name: Inspect FBX
+        run: blender --background --factory-startup --python tools/inspect_fbx.py
