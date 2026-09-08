@@ -13,7 +13,7 @@
     <header>
       <h1>EasyMocap</h1>
       <p>Mocap desde el celular · rig fijo: esqueleto-fase2</p>
-      <div id="version" class="version">v0.1.5</div>
+      <div id="version" class="version">v0.1.6</div>
     </header>
 
     <section class="card controls">
@@ -39,7 +39,7 @@
     <audio id="audio" preload="auto"></audio>
 
     <section class="actions">
-      <button id="cameraBtn" type="button" onclick="window.easyMocapOpenCamera()">Abrir cámara</button>
+      <button id="cameraBtn" type="button" onclick="window.easyMocapOpenCamera()">Abrir cámara</button>\n      <button id="cameraFacingBtn" type="button" onclick="window.easyMocapToggleFacing()">Usar trasera</button>
       <button id="recordBtn" class="primary" disabled>Grabar</button>
       <button id="downloadBtn" disabled>Guardar take</button>
     </section>
@@ -53,7 +53,7 @@
 
 
   <script>
-    window.__easyMocapTapCount = 0;
+    window.__easyMocapTapCount = 0;\n    window.__easyMocapFacing = "user";
 
     window.easyMocapOpenCamera = async function () {
       var tapCount = document.getElementById("tapCount");
@@ -82,7 +82,7 @@
         }
 
         var stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
+          video: { facingMode: { ideal: window.__easyMocapFacing } },
           audio: false
         });
 
