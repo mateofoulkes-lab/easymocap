@@ -34,3 +34,51 @@ jobs:
           test -f viewer.html
           test -f viewer.css
           test -f viewer.js
+
+      - name: Inspect castor_em2.glb
+        run: |
+          python - <<'PY'
+          import json, struct
+          from pathlib import Path
+          p=Path("castor_em2.glb")
+          raw=p.read_bytes()
+          magic,version,length=struct.unpack_from("<4sII",raw,0)
+          assert magic==b"glTF" and version==2 and length==len(raw)
+          off=12; gltf=None
+          while off<len(raw):
+              n,t=struct.unpack_from("<II",raw,off); off+=8
+              data=raw[off:off+n]; off+=n
+              if t==0x4E4F534A:
+                  gltf=json.loads(data.decode("utf-8").rstrip(" \t\r\n\x00"))
+          assert gltf
+          nodes=gltf.get("nodes",[]); meshes=gltf.get("meshes",[]); skins=gltf.get("skins",[])
+          print("=== BASIC ===")
+          print("bytes",len(raw),"nodes",len(nodes),"meshes",len(meshes),"skins",len(skins),"animations",len(gltf.get("animations",[])))
+          node_names={n.get("name") for n in nodes if n.get("name")}
+          required=["Root","Hips","Spine","Chest","Neck","Head","Shoulder_L","UpperArm_L","LowerArm_L","Hand_L","Shoulder_R","UpperArm_R","LowerArm_R","Hand_R","UpperLeg_L","LowerLeg_L","Foot_L","UpperLeg_R","LowerLeg_R","Foot_R"]
+          print("=== BONES ===")
+          for name in required: print("OK" if name in node_names else "MISS", name)
+          morphs=set(); has_j=False; has_w=False
+          print("=== MESHES ===")
+          for ni,node in enumerate(nodes):
+              if "mesh" not in node: continue
+              mesh=meshes[node["mesh"]]
+              names=mesh.get("extras",{}).get("targetNames",[])
+              morphs.update(names)
+              print("NODE",ni,node.get("name"),"mesh",mesh.get("name"),"skin",node.get("skin"),"targets",len(names))
+              if names: print("MORPHS",",".join(names))
+              for pi,prim in enumerate(mesh.get("primitives",[])):
+                  attrs=prim.get("attributes",{})
+                  has_j |= "JOINTS_0" in attrs
+                  has_w |= "WEIGHTS_0" in attrs
+                  print("PRIM",pi,"ATTRS",",".join(sorted(attrs.keys())),"TARGETS",len(prim.get("targets",[])))
+          print("JOINTS_0",has_j)
+          print("WEIGHTS_0",has_w)
+          reqm=["EM2_Blink_L","EM2_Blink_R","EM2_BrowDown_L","EM2_BrowUp_L","EM2_BrowDown_R","EM2_BrowUp_R","EM2_MouthOpen","EM2_MouthNarrow","EM2_MouthWide","EM2_MouthFrown_L","EM2_MouthSmile_L","EM2_MouthFrown_R","EM2_MouthSmile_R","EM2_HandOpen_L","EM2_IndexOpen_L","EM2_HandOpen_R","EM2_IndexOpen_R"]
+          print("=== MORPH CHECK ===")
+          for name in reqm: print("OK" if name in morphs else "MISS", name)
+          print("=== SKINS ===")
+          for i,skin in enumerate(skins):
+              names=[nodes[j].get("name",str(j)) for j in skin.get("joints",[])]
+              print("SKIN",i,"JOINTCOUNT",len(names),"NAMES",",".join(names))
+          PY
