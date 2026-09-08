@@ -1,4 +1,5 @@
-const APP_VERSION = "0.1.3";\nconst video = document.querySelector("#video");
+const APP_VERSION = "0.1.4";
+const video = document.querySelector("#video");
 const overlay = document.querySelector("#overlay");
 const ctx = overlay.getContext("2d");
 const cameraBtn = document.querySelector("#cameraBtn");
@@ -113,7 +114,9 @@ cameraBtn.addEventListener("click", async ()=>{
       console.error("Pose init failed", poseErr);
       statusEl.textContent="● Cámara activa · error cargando tracking";
       alert(
-        "La cámara ya tiene permiso y está funcionando, pero falló la carga del detector corporal.\n\n" +
+        "La cámara ya tiene permiso y está funcionando, pero falló la carga del detector corporal.
+
+" +
         (poseErr?.message || poseErr)
       );
     }
@@ -125,7 +128,9 @@ cameraBtn.addEventListener("click", async ()=>{
     if(name==="NotAllowedError" || name==="PermissionDeniedError"){
       statusEl.textContent="Permiso de cámara bloqueado";
       alert(
-        "El navegador bloqueó la cámara.\n\n" +
+        "El navegador bloqueó la cámara.
+
+" +
         "Entrá a los permisos del sitio y habilitá Cámara para EasyMocap, luego tocá nuevamente “Abrir cámara”."
       );
     }else if(name==="NotFoundError"){
@@ -133,7 +138,9 @@ cameraBtn.addEventListener("click", async ()=>{
       alert("No encontré ninguna cámara disponible en este dispositivo.");
     }else{
       statusEl.textContent="No pude abrir la cámara";
-      alert("No pude abrir la cámara.\n\n"+(err?.message || err));
+      alert("No pude abrir la cámara.
+
+"+(err?.message || err));
     }
   }finally{
     cameraBtn.disabled=false;
@@ -249,4 +256,6 @@ function draw(points){
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js").catch(()=>{});
 }
-\nconst versionEl=document.querySelector("#version");\nif(versionEl) versionEl.textContent=`v${APP_VERSION}`;\n
+
+const versionEl=document.querySelector("#version");
+if(versionEl) versionEl.textContent=`v${APP_VERSION}`;
