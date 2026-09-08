@@ -6,6 +6,28 @@ const MODEL_URL="./castor4-skinned.glb";
 const TAKE_URL="./easymocap-1788892224948.json";
 
 const MP={nose:0,l_shoulder:11,r_shoulder:12,l_elbow:13,r_elbow:14,l_wrist:15,r_wrist:16,l_hip:23,r_hip:24,l_knee:25,r_knee:26,l_ankle:27,r_ankle:28,l_heel:29,r_heel:30,l_toe:31,r_toe:32};
+const FIXED_BONES={
+ hips:"CC_Base_Pelvis",
+ spine:"CC_Base_Spine01",
+ chest:"CC_Base_Spine02",
+ neck:"CC_Base_NeckTwist01",
+ head:"CC_Base_Head",
+ l_upper_arm:"CC_Base_L_Upperarm",
+ r_upper_arm:"CC_Base_R_Upperarm",
+ l_forearm:"CC_Base_L_Forearm",
+ r_forearm:"CC_Base_R_Forearm",
+ l_hand:"CC_Base_L_Hand",
+ r_hand:"CC_Base_R_Hand",
+ l_thigh:"CC_Base_L_Thigh",
+ r_thigh:"CC_Base_R_Thigh",
+ l_shin:"CC_Base_L_Calf",
+ r_shin:"CC_Base_R_Calf",
+ l_foot:"CC_Base_L_Foot",
+ r_foot:"CC_Base_R_Foot",
+ l_toe:"CC_Base_L_ToeBase",
+ r_toe:"CC_Base_R_ToeBase"
+};
+
 const ALIASES={
  hips:["hips","hip","pelvis"],
  spine:["spine","spine1","abdomen"],
@@ -68,11 +90,16 @@ function mpv(frame,key){
  return new THREE.Vector3(p.x,-p.z,-p.y);
 }
 function pickBone(root,logical){
+ const exact=FIXED_BONES[logical];
+ if(exact){
+  const hit=root.getObjectByName(exact);
+  if(hit) return hit;
+ }
  const aliases=ALIASES[logical].map(norm);
  let best=null,bestScore=-1;
  root.traverse(o=>{
-  if(!o.isBone)return;
-  const c=norm(o.name);
+  const c=norm(o.name||"");
+  if(!c)return;
   for(const a of aliases){
    let s=-1;
    if(c===a)s=1000;
@@ -92,7 +119,7 @@ function captureRest(){
  rest={};
  for(const [k,b] of Object.entries(bones)){
   if(!b)continue;
-  const child=b.children.find(c=>c.isBone);
+  const child=b.children.find(c=>c && c.position && c.position.lengthSq && c.position.lengthSq()>1e-8);
   let dir;
   if(child&&child.position.lengthSq()>1e-8)dir=child.position.clone().normalize();
   else if(k.includes("arm"))dir=new THREE.Vector3(1,0,0);
@@ -183,7 +210,12 @@ async function boot(){
   scene.add(model);
   bones=buildMap(model);
   captureRest();
-  skeletonHelper=new THREE.SkeletonHelper(model); scene.add(skeletonHelper);
+  try{
+   skeletonHelper=new THREE.SkeletonHelper(model);
+   scene.add(skeletonHelper);
+  }catch(e){
+   console.warn("SkeletonHelper unavailable for this GLB",e);
+  }
   updateDebug(); fitCamera(model);
 
   statusEl.textContent="Cargando take…";
