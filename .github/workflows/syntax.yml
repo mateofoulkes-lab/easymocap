@@ -1,0 +1,16 @@
+name: Syntax check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  py_compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python sources
+        run: python -m py_compile app.py easymocap/__init__.py easymocap/pose_tracker.py easymocap/recorder.py easymocap/blender_bridge.py easymocap/blender_export.py
