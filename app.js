@@ -1,8 +1,9 @@
-import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.3";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.3";
-import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.3";
+import { saveLatestTake } from "./core/session-store.js?v=0.5.5";
+import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.5";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.5";
+import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.5";
 
-const APP_VERSION="0.5.3";
+const APP_VERSION="0.5.5";
 const $=(id)=>document.getElementById(id);
 const ui={
   camera:$("camera"),overlay:$("overlay"),cameraPlaceholder:$("cameraPlaceholder"),
@@ -139,8 +140,8 @@ ui.recordButton.addEventListener("click",async()=>{
 
     resetSmoothing();lastFrameStoredAt=-1;recording=true;setStatus("Grabando…");await ui.audio.play();
     await new Promise(resolve=>ui.audio.addEventListener("ended",resolve,{once:true}));
-    finishRecording();
-  }catch(e){finishRecording(false);showError(e)}
+    await finishRecording();
+  }catch(e){await finishRecording(false);showError(e)}
 });
 
 ui.downloadButton.addEventListener("click",()=>{
@@ -230,12 +231,19 @@ function resetSmoothing(){
 function round(v,d){const p=10**d;return Math.round(v*p)/p}
 function mix(a,b,t){return a+(b-a)*t}
 async function runCountdown(){ui.countdown.hidden=false;for(const n of ["3","2","1"]){ui.countdown.textContent=n;await new Promise(r=>setTimeout(r,700))}ui.countdown.hidden=true}
-function finishRecording(completed=true){
+async function finishRecording(completed=true){
   recording=false;
   if(completed&&currentTake){
     currentTake.timeline.frameCount=currentTake.timeline.frames.length;currentTake.timeline.duration=ui.audio.duration;
     currentTake.timeline.averageFps=currentTake.timeline.duration>0?round(currentTake.timeline.frameCount/currentTake.timeline.duration,2):0;
-    ui.downloadButton.hidden=false;setStatus(`Take ${mode==="body"?"Body":"Face"}: ${currentTake.timeline.frames.length} frames · ${currentTake.timeline.averageFps} fps.`);
+    ui.downloadButton.hidden=false;
+    try{
+      await saveLatestTake({take:currentTake,audioFile});
+      setStatus(`Take ${mode==="body"?"Body":"Face"}: ${currentTake.timeline.frames.length} frames · guardado temporalmente para Viewer.`);
+    }catch(e){
+      console.warn("No pude guardar sesión temporal",e);
+      setStatus(`Take ${mode==="body"?"Body":"Face"}: ${currentTake.timeline.frames.length} frames · ${currentTake.timeline.averageFps} fps.`);
+    }
   }
   refreshReadyState();
 }

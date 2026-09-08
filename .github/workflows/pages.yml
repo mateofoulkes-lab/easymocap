@@ -27,7 +27,7 @@ jobs:
         run: |
           mkdir -p _site/core _site/tracking
           cp index.html styles.css app.js viewer.html viewer.css viewer.js README.md castor_em2.glb _site/
-          cp core/spec.js _site/core/
+          cp core/spec.js core/session-store.js _site/core/
           cp tracking/body-tracker.js tracking/face-tracker.js _site/tracking/
       - uses: actions/upload-pages-artifact@v3
         with:

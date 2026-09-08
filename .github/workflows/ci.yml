@@ -20,6 +20,7 @@ jobs:
         run: |
           node --check app.js
           node --check core/spec.js
+          node --check core/session-store.js
           node --check tracking/body-tracker.js
           node --check tracking/face-tracker.js
           node --check viewer.js
@@ -29,6 +30,7 @@ jobs:
           test -f styles.css
           test -f app.js
           test -f core/spec.js
+          test -f core/session-store.js
           test -f tracking/body-tracker.js
           test -f tracking/face-tracker.js
           test -f viewer.html
