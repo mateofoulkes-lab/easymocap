@@ -1,8 +1,8 @@
-import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.0";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.0";
-import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.0";
+import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.1";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.1";
+import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.1";
 
-const APP_VERSION="0.5.0";
+const APP_VERSION="0.5.1";
 const $=(id)=>document.getElementById(id);
 const ui={
   camera:$("camera"),overlay:$("overlay"),cameraPlaceholder:$("cameraPlaceholder"),
@@ -12,7 +12,7 @@ const ui={
   errorPanel:$("errorPanel"),errorText:$("errorText")
 };
 
-let mode="body",stream=null,audioUrl=null,audioFile=null,currentTake=null,recording=false;
+let mode="body",stream=null,audioUrl=null,audioFile=null,currentTake=null,recording=false,cameraFacing="user",switchingCamera=false,lastStageTap=0;
 let bodyTracker=null,faceTracker=null,trackerLoopId=0,lastVideoTime=-1,lastInferenceAt=0,lastFrameStoredAt=-1;
 const handSmooth={EM2_HandOpen_L:null,EM2_IndexOpen_L:null,EM2_HandOpen_R:null,EM2_IndexOpen_R:null};
 const faceSmooth={
@@ -94,7 +94,7 @@ ui.recordButton.addEventListener("click",async()=>{
     currentTake.appVersion=APP_VERSION;
     currentTake.capture={
       videoWidth:ui.camera.videoWidth,videoHeight:ui.camera.videoHeight,userAgent:navigator.userAgent,
-      tracker:"MediaPipe Tasks Vision 1.0.1"
+      tracker:"MediaPipe Tasks Vision 1.0.1",cameraFacing
     };
     if(mode==="body")currentTake.capture.bodyRotationFormat=BODY_ROTATION_FORMAT;
 
@@ -131,7 +131,7 @@ function startTrackerLoop(){
     if(ui.camera.currentTime===lastVideoTime||now-lastInferenceAt<34)return;
     lastVideoTime=ui.camera.currentTime;lastInferenceAt=now;
     try{
-      const result=tracker.detect(ui.camera,Math.round(now));tracker.draw(ui.overlay,ui.camera,result);setTrackerLabels(result);
+      const result=tracker.detect(ui.camera,Math.round(now));tracker.draw(ui.overlay,ui.camera,result,cameraFacing==="user");setTrackerLabels(result);
       if(recording&&result.tracked)(mode==="body"?storeBodyFrame(result.frame):storeFaceFrame(result.frame));
     }catch(e){cancelAnimationFrame(trackerLoopId);trackerLoopId=0;showError(e)}
   };

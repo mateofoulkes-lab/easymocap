@@ -264,7 +264,7 @@ export class BodyTracker{
       }
     };
   }
-  draw(canvas,video,result){
+  draw(canvas,video,result,mirror=true){
     const width=video.videoWidth||1280,height=video.videoHeight||720;
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height}
     const ctx=canvas.getContext("2d");ctx.clearRect(0,0,width,height);
@@ -274,19 +274,19 @@ export class BodyTracker{
       ctx.lineWidth=Math.max(2,width/400);ctx.strokeStyle="rgba(92,255,178,.95)";ctx.fillStyle="rgba(255,255,255,.95)";
       for(const [a,b] of POSE_CONNECTIONS){
         const pa=pose[a],pb=pose[b];if((pa.visibility??1)<.35||(pb.visibility??1)<.35)continue;
-        ctx.beginPath();ctx.moveTo((1-pa.x)*width,pa.y*height);ctx.lineTo((1-pb.x)*width,pb.y*height);ctx.stroke();
+        ctx.beginPath();ctx.moveTo((mirror?1-pa.x:pa.x)*width,pa.y*height);ctx.lineTo((mirror?1-pb.x:pb.x)*width,pb.y*height);ctx.stroke();
       }
       for(const p of pose){
         if((p.visibility??1)<.5)continue;
-        ctx.beginPath();ctx.arc((1-p.x)*width,p.y*height,Math.max(2,width/300),0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc((mirror?1-p.x:p.x)*width,p.y*height,Math.max(2,width/300),0,Math.PI*2);ctx.fill();
       }
     }
     ctx.strokeStyle="rgba(255,205,86,.95)";ctx.fillStyle="rgba(255,225,145,.95)";
     for(const hand of result.handResult?.landmarks||[]){
       for(const [a,b] of HAND_CONNECTIONS){
-        ctx.beginPath();ctx.moveTo((1-hand[a].x)*width,hand[a].y*height);ctx.lineTo((1-hand[b].x)*width,hand[b].y*height);ctx.stroke();
+        ctx.beginPath();ctx.moveTo((mirror?1-hand[a].x:hand[a].x)*width,hand[a].y*height);ctx.lineTo((mirror?1-hand[b].x:hand[b].x)*width,hand[b].y*height);ctx.stroke();
       }
-      for(const p of hand){ctx.beginPath();ctx.arc((1-p.x)*width,p.y*height,Math.max(2,width/360),0,Math.PI*2);ctx.fill()}
+      for(const p of hand){ctx.beginPath();ctx.arc((mirror?1-p.x:p.x)*width,p.y*height,Math.max(2,width/360),0,Math.PI*2);ctx.fill()}
     }
   }
 }

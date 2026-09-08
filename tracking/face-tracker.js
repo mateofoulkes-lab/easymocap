@@ -70,7 +70,7 @@ export class FaceTracker {
     };
   }
 
-  draw(canvas,video,result) {
+  draw(canvas,video,result,mirror=true) {
     const width = video.videoWidth || 1280;
     const height = video.videoHeight || 720;
     if (canvas.width !== width || canvas.height !== height) {
@@ -86,7 +86,7 @@ export class FaceTracker {
     for (let i=0;i<face.length;i+=2) {
       const p = face[i];
       ctx.beginPath();
-      ctx.arc((1-p.x)*width,p.y*height,radius,0,Math.PI*2);
+      ctx.arc((mirror?1-p.x:p.x)*width,p.y*height,radius,0,Math.PI*2);
       ctx.fill();
     }
   }
