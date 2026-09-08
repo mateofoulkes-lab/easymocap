@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101216">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./web/styles.css">
+  <title>EasyMocap</title>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>EasyMocap</h1>
+      <p>Mocap desde el celular · rig fijo: esqueleto-fase2</p>
+    </header>
+
+    <section class="card controls">
+      <label class="file">
+        <span>Audio</span>
+        <input id="audioInput" type="file" accept=".mp3,.ogg,audio/mpeg,audio/ogg">
+      </label>
+      <div id="audioName" class="muted">Sin audio</div>
+
+      <label class="switchrow">
+        <input id="footLock" type="checkbox" checked>
+        <span>Fijar pies al suelo (IK)</span>
+      </label>
+    </section>
+
+    <section class="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div id="countdown" class="countdown hidden"></div>
+      <div id="status" class="status">Cámara apagada</div>
+    </section>
+
+    <audio id="audio" preload="auto"></audio>
+
+    <section class="actions">
+      <button id="cameraBtn">Abrir cámara</button>
+      <button id="recordBtn" class="primary" disabled>Grabar</button>
+      <button id="downloadBtn" disabled>Guardar take</button>
+    </section>
+
+    <section class="card info">
+      <strong>Rig precargado</strong>
+      <div>esqueleto-fase2.fbx</div>
+      <small>El celular graba el movimiento. El take se guarda con el mapeo preparado para este rig.</small>
+    </section>
+  </main>
+
+  <script type="module" src="./web/app.js"></script>
+</body>
+</html>
