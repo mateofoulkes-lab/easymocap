@@ -1,0 +1,28 @@
+name: Validate EasyMocap 2
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check core/spec.js
+      - name: Check required files
+        run: |
+          test -f index.html
+          test -f styles.css
+          test -f app.js
+          test -f core/spec.js
