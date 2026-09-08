@@ -1,0 +1,9 @@
+{
+  "name":"EasyMocap",
+  "short_name":"EasyMocap",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#101216",
+  "theme_color":"#101216",
+  "description":"Mobile mocap recorder for esqueleto-fase2"
+}
