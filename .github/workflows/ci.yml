@@ -20,11 +20,11 @@ jobs:
         run: |
           node --check app.js
           node --check core/spec.js
-          node --check tracking/body-tracker.js\n          node --check tracking/face-tracker.js
+          node --check tracking/body-tracker.js\n          node --check tracking/face-tracker.js\n          node --check viewer.js
       - name: Check required files
         run: |
           test -f index.html
           test -f styles.css
           test -f app.js
           test -f core/spec.js
-          test -f tracking/body-tracker.js\n          test -f tracking/face-tracker.js
+          test -f tracking/body-tracker.js\n          test -f tracking/face-tracker.js\n          test -f viewer.html\n          test -f viewer.css\n          test -f viewer.js

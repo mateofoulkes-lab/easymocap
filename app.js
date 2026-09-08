@@ -1,7 +1,7 @@
-import { createTake } from "./core/spec.js?v=0.3.0";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.3.0";\nimport { FaceTracker } from "./tracking/face-tracker.js?v=0.3.0";
+import { createTake } from "./core/spec.js?v=0.4.0";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.4.0";\nimport { FaceTracker } from "./tracking/face-tracker.js?v=0.4.0";
 
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "0.4.0";
 const $ = (id) => document.getElementById(id);
 
 const ui = {
