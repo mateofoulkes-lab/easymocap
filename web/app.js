@@ -1,4 +1,4 @@
-const APP_VERSION = "0.1.4";
+const APP_VERSION = "0.1.7";
 const video = document.querySelector("#video");
 const overlay = document.querySelector("#overlay");
 const ctx = overlay.getContext("2d");
@@ -55,6 +55,7 @@ async function initPose(){
     minTrackingConfidence:.55
   });
   statusEl.textContent = "● Detector listo";
+  applyMirrorState();
 }
 
 audioInput.addEventListener("change",()=>{
@@ -100,8 +101,8 @@ cameraBtn.addEventListener("click", async ()=>{
 
     video.srcObject = stream;
     await video.play();
-    overlay.width = video.videoWidth || 720;
-    overlay.height = video.videoHeight || 1280;
+    syncOverlayToVideo();
+    applyMirrorState();
     running = true;
     cameraBtn.textContent="Cerrar cámara";
     statusEl.textContent="● Cámara activa · cargando tracking…";
@@ -213,6 +214,7 @@ function loop(){
   if(!running) return;
   const now=performance.now();
   if(video.readyState>=2 && landmarker){
+    if(!overlay.width || !overlay.height) syncOverlayToVideo();
     const result=landmarker.detectForVideo(video,now);
     draw(result.landmarks?.[0]);
     const world=result.worldLandmarks?.[0];
@@ -246,9 +248,11 @@ function draw(points){
   for(const [a,b] of connections){
     const p=points[a], q=points[b];
     if(!p||!q) continue;
+    if((p.visibility ?? 1) < .35 || (q.visibility ?? 1) < .35) continue;
     ctx.beginPath();ctx.moveTo(p.x*sx,p.y*sy);ctx.lineTo(q.x*sx,q.y*sy);ctx.stroke();
   }
   for(const p of points){
+    if((p.visibility ?? 1) < .35) continue;
     ctx.beginPath();ctx.arc(p.x*sx,p.y*sy,4,0,Math.PI*2);ctx.fill();
   }
 }
@@ -259,3 +263,38 @@ if("serviceWorker" in navigator){
 
 const versionEl=document.querySelector("#version");
 if(versionEl) versionEl.textContent=`v${APP_VERSION}`;
+
+function applyMirrorState(){
+  const mirrored = (window.__easyMocapFacing || "user") === "user";
+  video.classList.toggle("mirror", mirrored);
+  overlay.classList.toggle("mirror", mirrored);
+}
+
+function syncOverlayToVideo(){
+  const rect = video.getBoundingClientRect();
+  overlay.width = Math.max(1, Math.round(rect.width));
+  overlay.height = Math.max(1, Math.round(rect.height));
+}
+window.addEventListener("resize", syncOverlayToVideo);
+window.addEventListener("orientationchange", ()=>setTimeout(syncOverlayToVideo, 250));
+
+window.addEventListener("easymocap-camera-ready", async ()=>{
+  try{
+    stream = window.__easyMocapStream || stream;
+    if(!stream) return;
+    syncOverlayToVideo();
+    applyMirrorState();
+    running = true;
+    if(!landmarker) await initPose();
+    if(!raf) loop();
+    updateReady();
+  }catch(err){
+    console.error("Tracking init failed", err);
+    statusEl.textContent = "● Cámara activa · tracking no disponible";
+  }
+});
+
+window.addEventListener("easymocap-facing-changed", ()=>{
+  applyMirrorState();
+  setTimeout(syncOverlayToVideo, 100);
+});
