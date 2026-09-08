@@ -1,0 +1,39 @@
+name: Build skinned castor GLB
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "castor4.glb"
+      - "esqueleto-fase2.fbx"
+      - "tools/build_skinned_castor.py"
+      - ".github/workflows/build-skinned-castor.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+
+      - name: Build skinned GLB
+        run: blender --background --factory-startup --python tools/build_skinned_castor.py
+
+      - name: Commit generated GLB
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add castor4-skinned.glb
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Generate skinned castor4 GLB"
+            git push
+          fi
