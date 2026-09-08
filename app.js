@@ -1,8 +1,8 @@
-import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.2";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.2";
-import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.2";
+import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.3";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.3";
+import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.3";
 
-const APP_VERSION="0.5.2";
+const APP_VERSION="0.5.3";
 const $=(id)=>document.getElementById(id);
 const ui={
   camera:$("camera"),overlay:$("overlay"),cameraPlaceholder:$("cameraPlaceholder"),
@@ -73,15 +73,52 @@ ui.flipCameraButton.addEventListener("click",()=>switchCamera());
 
 ui.cameraButton.addEventListener("click",async()=>{
   clearError();if(stream){stopCamera();return}
-  try{
-    if(!navigator.mediaDevices?.getUserMedia)throw new Error("getUserMedia no está disponible en este navegador/contexto.");
-    setStatus("Pidiendo permiso de cámara…");
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},audio:false});
-    ui.camera.srcObject=stream;await ui.camera.play();ui.cameraPlaceholder.hidden=true;ui.cameraButton.textContent="Apagar cámara";
-    mode==="body"?await ensureBodyTracker():await ensureFaceTracker();
-    startTrackerLoop();setStatus("Cámara lista.");refreshReadyState();
-  }catch(e){stopCamera();showError(e)}
+  try{await startCamera(cameraFacing)}catch(e){stopCamera();showError(e)}
 });
+
+async function startCamera(facing){
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error("getUserMedia no está disponible en este navegador/contexto.");
+  setStatus(`Abriendo cámara ${facing==="user"?"frontal":"trasera"}…`);
+  const nextStream=await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720}},
+    audio:false
+  });
+  stream=nextStream;
+  cameraFacing=facing;
+  ui.camera.srcObject=stream;
+  await ui.camera.play();
+  ui.cameraPlaceholder.hidden=true;
+  ui.cameraButton.textContent="Apagar cámara";
+  ui.camera.classList.toggle("rear",cameraFacing==="environment");
+  mode==="body"?await ensureBodyTracker():await ensureFaceTracker();
+  startTrackerLoop();
+  setStatus(`Cámara ${cameraFacing==="user"?"frontal":"trasera"} lista.`);
+  refreshReadyState();
+}
+
+async function switchCamera(){
+  if(recording||switchingCamera||!stream)return;
+  switchingCamera=true;
+  ui.flipCameraButton.disabled=true;
+  ui.flipCameraButton.textContent="Cambiando…";
+  const previous=cameraFacing;
+  const next=previous==="user"?"environment":"user";
+  try{
+    const oldStream=stream;
+    stream=null;
+    ui.camera.srcObject=null;
+    oldStream.getTracks().forEach(t=>t.stop());
+    clearOverlay();
+    await startCamera(next);
+  }catch(error){
+    showError(new Error(`No pude cambiar a la cámara ${next==="user"?"frontal":"trasera"}: ${error.message||error}`));
+    try{await startCamera(previous)}catch(recoveryError){showError(recoveryError)}
+  }finally{
+    switchingCamera=false;
+    ui.flipCameraButton.disabled=!stream;
+    ui.flipCameraButton.textContent="Girar cámara";
+  }
+}
 
 ui.recordButton.addEventListener("click",async()=>{
   clearError();if(recording)return;
