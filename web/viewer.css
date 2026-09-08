@@ -1,0 +1,10 @@
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101216;color:#eef1f5;font-family:Inter,system-ui,sans-serif}
+#viewer{width:100%;height:100%;display:block}
+#hud{position:fixed;z-index:10;top:12px;left:12px;right:12px;max-width:760px;background:rgba(16,18,22,.9);border:1px solid #303742;border-radius:14px;padding:12px;backdrop-filter:blur(8px)}
+.topline,.controls,.timeline{display:flex;gap:10px;align-items:center}.topline{justify-content:space-between}.controls{margin-top:10px;flex-wrap:wrap}.timeline{margin-top:10px}
+button,.filebtn{background:#252b33;color:white;border:1px solid #3b4450;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}
+.filebtn input{display:none}
+#scrubber{flex:1}
+#status{margin-top:6px;color:#a7b0bb}
+details{margin-top:10px;color:#aab4bf}
+pre{white-space:pre-wrap;max-height:180px;overflow:auto;background:#090b0e;padding:8px;border-radius:8px}
