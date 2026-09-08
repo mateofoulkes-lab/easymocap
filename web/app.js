@@ -1,8 +1,3 @@
-import {
-  FilesetResolver,
-  PoseLandmarker
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm";
-
 const video = document.querySelector("#video");
 const overlay = document.querySelector("#overlay");
 const ctx = overlay.getContext("2d");
@@ -18,6 +13,8 @@ const footLock = document.querySelector("#footLock");
 
 let stream = null;
 let landmarker = null;
+let FilesetResolver = null;
+let PoseLandmarker = null;
 let running = false;
 let recording = false;
 let frames = [];
@@ -32,7 +29,16 @@ const connections = [
 
 async function initPose(){
   if(landmarker) return;
-  statusEl.textContent = "Cargando detector…";
+  statusEl.textContent = "Cargando detector corporal…";
+
+  if(!FilesetResolver || !PoseLandmarker){
+    const visionModule = await import(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm"
+    );
+    FilesetResolver = visionModule.FilesetResolver;
+    PoseLandmarker = visionModule.PoseLandmarker;
+  }
+
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
   );
@@ -47,6 +53,7 @@ async function initPose(){
     minPosePresenceConfidence:.55,
     minTrackingConfidence:.55
   });
+  statusEl.textContent = "● Detector listo";
 }
 
 audioInput.addEventListener("change",()=>{
@@ -62,23 +69,74 @@ cameraBtn.addEventListener("click", async ()=>{
     stopCamera();
     return;
   }
+
+  if(!window.isSecureContext){
+    statusEl.textContent="La cámara requiere HTTPS";
+    alert("EasyMocap necesita abrirse por HTTPS para que el navegador permita usar la cámara.");
+    return;
+  }
+
+  if(!navigator.mediaDevices?.getUserMedia){
+    statusEl.textContent="Este navegador no permite acceso a cámara";
+    alert("Este navegador no expone acceso a la cámara. Probá Chrome, Edge o Safari actualizado.");
+    return;
+  }
+
   try{
-    await initPose();
+    statusEl.textContent="Esperando permiso de cámara…";
+    cameraBtn.disabled=true;
+
+    // Pedimos permiso ANTES de cargar MediaPipe para que el navegador
+    // muestre inmediatamente el diálogo de acceso a cámara.
     stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},
+      video:{
+        facingMode:"user",
+        width:{ideal:1280},
+        height:{ideal:720}
+      },
       audio:false
     });
+
     video.srcObject = stream;
     await video.play();
     overlay.width = video.videoWidth || 720;
     overlay.height = video.videoHeight || 1280;
     running = true;
     cameraBtn.textContent="Cerrar cámara";
+    statusEl.textContent="● Cámara activa · cargando tracking…";
     loop();
     updateReady();
+
+    try{
+      await initPose();
+    }catch(poseErr){
+      console.error("Pose init failed", poseErr);
+      statusEl.textContent="● Cámara activa · error cargando tracking";
+      alert(
+        "La cámara ya tiene permiso y está funcionando, pero falló la carga del detector corporal.\n\n" +
+        (poseErr?.message || poseErr)
+      );
+    }
   }catch(err){
-    statusEl.textContent="No pude abrir la cámara";
-    alert("EasyMocap necesita permiso para usar la cámara.\n\n"+err.message);
+    stream?.getTracks().forEach(t=>t.stop());
+    stream=null;
+
+    const name=err?.name || "";
+    if(name==="NotAllowedError" || name==="PermissionDeniedError"){
+      statusEl.textContent="Permiso de cámara bloqueado";
+      alert(
+        "El navegador bloqueó la cámara.\n\n" +
+        "Entrá a los permisos del sitio y habilitá Cámara para EasyMocap, luego tocá nuevamente “Abrir cámara”."
+      );
+    }else if(name==="NotFoundError"){
+      statusEl.textContent="No encontré una cámara";
+      alert("No encontré ninguna cámara disponible en este dispositivo.");
+    }else{
+      statusEl.textContent="No pude abrir la cámara";
+      alert("No pude abrir la cámara.\n\n"+(err?.message || err));
+    }
+  }finally{
+    cameraBtn.disabled=false;
   }
 });
 
