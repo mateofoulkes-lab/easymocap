@@ -5,7 +5,7 @@ Lightweight desktop motion capture for one specific workflow: **perform to an au
 ## What it does
 
 1. Load an `.mp3` or `.ogg`.
-2. Load a rigged `.fbx`.
+2. The app already includes the fixed rig `esqueleto-fase2.fbx`.
 3. Open the webcam.
 4. MediaPipe tracks the body and shows a live skeleton overlay.
 5. Optional **Foot Lock IK** reduces foot sliding.
@@ -67,9 +67,23 @@ The current foot lock is lightweight post-processing. It detects low-speed foot 
 
 - Single RGB webcam: depth is inferred and will not match multi-camera or depth-camera mocap precision.
 - No fingers or face yet.
-- The MVP retargeter is humanoid-focused.
+- EasyMocap is intentionally calibrated around the bundled `esqueleto-fase2.fbx` rig rather than arbitrary user rigs.
 - Blender is currently required for final FBX I/O.
 
 ## Development
 
 A GitHub Actions syntax smoke test compiles all Python sources on every push.
+
+
+## Fixed rig
+
+EasyMocap no longer asks the performer to choose an FBX. The project ships with:
+
+`esqueleto-fase2.fbx`
+
+That rig is the canonical output skeleton. This keeps the mobile workflow minimal and lets the retarget solver be calibrated to one known hierarchy, bind pose and bone orientation.
+
+Target mobile flow:
+
+`Open app → choose audio → camera → Foot Lock → 3…2…1 → perform → export`
+
