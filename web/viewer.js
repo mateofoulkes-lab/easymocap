@@ -1,260 +1,68 @@
-const VIEWER_VERSION = "0.1.3";
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import {TransformControls} from "three/addons/controls/TransformControls.js";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 
-const MODEL_URL="./castor4-skinned.glb?v=0.1.3";
-const TAKE_URL="./easymocap-1788892224948.json";
+const MODEL_URL="./castor4-skinned.glb?v=0.2.0", TAKE_URL="./easymocap-1788892224948.json", STORE="easymocap-retarget-map-v1";
+const MP={nose:0,l_shoulder:11,r_shoulder:12,l_elbow:13,r_elbow:14,l_wrist:15,r_wrist:16,l_pinky:17,r_pinky:18,l_index:19,r_index:20,l_thumb:21,r_thumb:22,l_hip:23,r_hip:24,l_knee:25,r_knee:26,l_ankle:27,r_ankle:28,l_heel:29,r_heel:30,l_toe:31,r_toe:32};
+const DEFAULT_MAP={hips:"CC_Base_Pelvis",spine:"CC_Base_Spine01",chest:"CC_Base_Spine02",neck:"CC_Base_NeckTwist01",head:"CC_Base_Head",l_upper_arm:"CC_Base_L_Upperarm",r_upper_arm:"CC_Base_R_Upperarm",l_forearm:"CC_Base_L_Forearm",r_forearm:"CC_Base_R_Forearm",l_hand:"CC_Base_L_Hand",r_hand:"CC_Base_R_Hand",l_thigh:"CC_Base_L_Thigh",r_thigh:"CC_Base_R_Thigh",l_shin:"CC_Base_L_Calf",r_shin:"CC_Base_R_Calf",l_foot:"CC_Base_L_Foot",r_foot:"CC_Base_R_Foot",l_toe:"CC_Base_L_ToeBase",r_toe:"CC_Base_R_ToeBase"};
+const ORDER=Object.keys(DEFAULT_MAP);
+let mapping={...DEFAULT_MAP,...readMap()};
 
-const MP={nose:0,l_shoulder:11,r_shoulder:12,l_elbow:13,r_elbow:14,l_wrist:15,r_wrist:16,l_hip:23,r_hip:24,l_knee:25,r_knee:26,l_ankle:27,r_ankle:28,l_heel:29,r_heel:30,l_toe:31,r_toe:32};
-const FIXED_BONES={
- hips:"CC_Base_Pelvis",
- spine:"CC_Base_Spine01",
- chest:"CC_Base_Spine02",
- neck:"CC_Base_NeckTwist01",
- head:"CC_Base_Head",
- l_upper_arm:"CC_Base_L_Upperarm",
- r_upper_arm:"CC_Base_R_Upperarm",
- l_forearm:"CC_Base_L_Forearm",
- r_forearm:"CC_Base_R_Forearm",
- l_hand:"CC_Base_L_Hand",
- r_hand:"CC_Base_R_Hand",
- l_thigh:"CC_Base_L_Thigh",
- r_thigh:"CC_Base_R_Thigh",
- l_shin:"CC_Base_L_Calf",
- r_shin:"CC_Base_R_Calf",
- l_foot:"CC_Base_L_Foot",
- r_foot:"CC_Base_R_Foot",
- l_toe:"CC_Base_L_ToeBase",
- r_toe:"CC_Base_R_ToeBase"
-};
+const $=id=>document.getElementById(id);
+const status=$("status"), playBtn=$("playBtn"), pauseBtn=$("pauseBtn"), resetBtn=$("resetBtn"), scrubber=$("scrubber"), timeLabel=$("timeLabel"), jsonInput=$("jsonInput"), transformMode=$("transformMode"), transformTarget=$("transformTarget"), sourceList=$("sourceBoneList"), targetList=$("targetBoneList"), targetSelect=$("targetBoneSelect"), assignBtn=$("assignBtn"), resetMappingBtn=$("resetMappingBtn"), selectedMapping=$("selectedMapping"), sourceCanvas=$("sourceCanvas"), targetCanvas=$("targetCanvas");
 
-const ALIASES={
- hips:["hips","hip","pelvis"],
- spine:["spine","spine1","abdomen"],
- chest:["spine2","chest","upperchest","spine01","spine_01"],
- neck:["neck","neck1"],
- head:["head"],
- l_upper_arm:["leftarm","upperarml","lupperarm","arm_l","upper_arm_l"],
- r_upper_arm:["rightarm","upperarmr","rupperarm","arm_r","upper_arm_r"],
- l_forearm:["leftforearm","lowerarml","lforearm","forearm_l","lower_arm_l"],
- r_forearm:["rightforearm","lowerarmr","rforearm","forearm_r","lower_arm_r"],
- l_hand:["lefthand","handl","lhand","hand_l"],
- r_hand:["righthand","handr","rhand","hand_r"],
- l_thigh:["leftupleg","leftthigh","thighl","upperleg_l","thigh_l"],
- r_thigh:["rightupleg","rightthigh","thighr","upperleg_r","thigh_r"],
- l_shin:["leftleg","leftshin","calfl","lowerleg_l","shin_l"],
- r_shin:["rightleg","rightshin","calfr","lowerleg_r","shin_r"],
- l_foot:["leftfoot","footl","foot_l"],
- r_foot:["rightfoot","footr","foot_r"],
- l_toe:["lefttoebase","lefttoe","toel","toe_l"],
- r_toe:["righttoebase","righttoe","toer","toe_r"]
-};
+const sourceRenderer=renderer(sourceCanvas), targetRenderer=renderer(targetCanvas), sourceScene=scene(), targetScene=scene(), sourceCamera=camera(), targetCamera=camera(), sourceOrbit=orbit(sourceCamera,sourceCanvas), targetOrbit=orbit(targetCamera,targetCanvas);
+sourceCamera.position.set(2.4,1.7,3.5);targetCamera.position.set(2.8,1.7,4.2);sourceOrbit.target.set(0,1,0);targetOrbit.target.set(0,1,0);
 
-const canvas=document.getElementById("viewer");
-const statusEl=document.getElementById("status");
-const debugEl=document.getElementById("debug");
-const playBtn=document.getElementById("playBtn");
-const pauseBtn=document.getElementById("pauseBtn");
-const resetBtn=document.getElementById("resetBtn");
-const scrubber=document.getElementById("scrubber");
-const timeLabel=document.getElementById("timeLabel");
-const jsonInput=document.getElementById("jsonInput");
+const sourceRoot=new THREE.Group(); sourceRoot.name="MocapSkeletonRoot"; sourceScene.add(sourceRoot);
+const modelRoot=new THREE.Group(); modelRoot.name="CharacterRoot"; targetScene.add(modelRoot);
+const sourceTransform=new TransformControls(sourceCamera,sourceCanvas), targetTransform=new TransformControls(targetCamera,targetCanvas);
+sourceScene.add(sourceTransform); targetScene.add(targetTransform); sourceTransform.attach(sourceRoot);
+sourceTransform.addEventListener("dragging-changed",e=>sourceOrbit.enabled=!e.value); targetTransform.addEventListener("dragging-changed",e=>targetOrbit.enabled=!e.value);
 
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled=true;
+let model=null,rigRoot=null,targetBones=[],targetByName=new Map(),targetMeshes=new Map(),sourceMeshes=new Map(),frames=[],duration=0,playhead=0,playing=false,selectedSource="hips",selectedTarget=null,firstHips=null,rootScale=1,rest=new Map();
+const clock=new THREE.Clock(), ray=new THREE.Raycaster(), pointer=new THREE.Vector2(), Y=new THREE.Vector3(0,1,0);
+const sDef=new THREE.MeshStandardMaterial({color:0x2bdcff}),sSel=new THREE.MeshStandardMaterial({color:0xffd84d}),tDef=new THREE.MeshStandardMaterial({color:0x2fd6a0}),tMap=new THREE.MeshStandardMaterial({color:0x59c9ff}),tSel=new THREE.MeshStandardMaterial({color:0xff9f43});
 
-const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x101216);
-
-const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.01,100);
-camera.position.set(2.6,1.7,3.8);
-
-const controls=new OrbitControls(camera,renderer.domElement);
-controls.target.set(0,1,0);
-controls.enableDamping=true;
-
-scene.add(new THREE.HemisphereLight(0xffffff,0x334455,1.4));
-const dl=new THREE.DirectionalLight(0xffffff,1.8);
-dl.position.set(3,5,3); dl.castShadow=true; scene.add(dl);
-scene.add(new THREE.GridHelper(10,20,0x4a515c,0x242930));
-
-let model=null, skeletonHelper=null, bones={}, rest={}, frames=[], duration=0, playhead=0, playing=false, firstHips=null, rootScale=1;
-let skinnedMeshCount=0;
-const clock=new THREE.Clock();
-
-function norm(name){return name.toLowerCase().replace("mixamorig:","").replace(/[^a-z0-9]/g,"");}
-function midpoint(a,b){return a.clone().add(b).multiplyScalar(.5);}
-function mpv(frame,key){
- const p=frame.world_landmarks[MP[key]];
- return new THREE.Vector3(p.x,-p.z,-p.y);
-}
-function pickBone(root,logical){
- const exact=FIXED_BONES[logical];
- if(exact){
-  const hit=root.getObjectByName(exact);
-  if(hit) return hit;
- }
- const aliases=ALIASES[logical].map(norm);
- let best=null,bestScore=-1;
- root.traverse(o=>{
-  const c=norm(o.name||"");
-  if(!c)return;
-  for(const a of aliases){
-   let s=-1;
-   if(c===a)s=1000;
-   else if(c.endsWith(a))s=500+a.length;
-   else if(c.includes(a))s=100+a.length;
-   if(s>bestScore){bestScore=s;best=o;}
-  }
- });
- return best;
-}
-function buildMap(root){
- const m={};
- for(const k of Object.keys(ALIASES))m[k]=pickBone(root,k);
- return m;
-}
-function captureRest(){
- rest={};
- for(const [k,b] of Object.entries(bones)){
-  if(!b)continue;
-  const child=b.children.find(c=>c && c.position && c.position.lengthSq && c.position.lengthSq()>1e-8);
-  let dir;
-  if(child&&child.position.lengthSq()>1e-8)dir=child.position.clone().normalize();
-  else if(k.includes("arm"))dir=new THREE.Vector3(1,0,0);
-  else if(k.includes("thigh")||k.includes("shin"))dir=new THREE.Vector3(0,-1,0);
-  else if(k.includes("foot")||k.includes("toe"))dir=new THREE.Vector3(0,0,1);
-  else dir=new THREE.Vector3(0,1,0);
-  rest[k]={quat:b.quaternion.clone(),dir};
- }
-}
-function setDirection(key,targetWorld){
- const b=bones[key],r=rest[key];
- if(!b||!r||targetWorld.lengthSq()<1e-8)return;
- const parentQ=new THREE.Quaternion();
- if(b.parent)b.parent.getWorldQuaternion(parentQ); else parentQ.identity();
- const targetLocal=targetWorld.clone().normalize().applyQuaternion(parentQ.invert());
- const delta=new THREE.Quaternion().setFromUnitVectors(r.dir.clone().normalize(),targetLocal);
- b.quaternion.copy(r.quat).multiply(delta);
-}
-function applyFrame(frame){
- if(!frame)return;
- const lS=mpv(frame,"l_shoulder"),rS=mpv(frame,"r_shoulder"),lH=mpv(frame,"l_hip"),rH=mpv(frame,"r_hip");
- const sMid=midpoint(lS,rS),hMid=midpoint(lH,rH);
- if(bones.hips&&firstHips){
-  const d=hMid.clone().sub(firstHips).multiplyScalar(rootScale);
-  bones.hips.position.copy(d);
- }
- const nose=mpv(frame,"nose");
- setDirection("spine",sMid.clone().sub(hMid));
- setDirection("chest",sMid.clone().sub(hMid));
- setDirection("neck",nose.clone().sub(sMid));
- setDirection("head",nose.clone().sub(sMid));
- setDirection("l_upper_arm",mpv(frame,"l_elbow").sub(lS));
- setDirection("l_forearm",mpv(frame,"l_wrist").sub(mpv(frame,"l_elbow")));
- setDirection("r_upper_arm",mpv(frame,"r_elbow").sub(rS));
- setDirection("r_forearm",mpv(frame,"r_wrist").sub(mpv(frame,"r_elbow")));
- setDirection("l_thigh",mpv(frame,"l_knee").sub(lH));
- setDirection("l_shin",mpv(frame,"l_ankle").sub(mpv(frame,"l_knee")));
- setDirection("l_foot",mpv(frame,"l_toe").sub(mpv(frame,"l_ankle")));
- setDirection("l_toe",mpv(frame,"l_toe").sub(mpv(frame,"l_heel")));
- setDirection("r_thigh",mpv(frame,"r_knee").sub(rH));
- setDirection("r_shin",mpv(frame,"r_ankle").sub(mpv(frame,"r_knee")));
- setDirection("r_foot",mpv(frame,"r_toe").sub(mpv(frame,"r_ankle")));
- setDirection("r_toe",mpv(frame,"r_toe").sub(mpv(frame,"r_heel")));
-}
-function validFrames(take){return (take.frames||[]).filter(f=>Array.isArray(f.world_landmarks)&&f.world_landmarks.length>=33);}
-function frameAt(t){
- if(!frames.length)return null;
- let lo=0,hi=frames.length-1;
- while(lo<hi){const mid=(lo+hi)>>1;if(frames[mid].timestamp<t)lo=mid+1;else hi=mid;}
- return frames[lo];
-}
-function fitCamera(root){
- const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
- const max=Math.max(size.x,size.y,size.z,1);
- controls.target.copy(center);
- camera.position.copy(center).add(new THREE.Vector3(max*1.3,max*.5,max*1.8));
- camera.near=max/1000; camera.far=max*100; camera.updateProjectionMatrix();
- controls.update();
-}
-function updateDebug(){
- const lines=[];
- for(const k of Object.keys(ALIASES))lines.push(k.padEnd(13)+" -> "+(bones[k]?bones[k].name:"NO ENCONTRADO"));
- debugEl.textContent=lines.join("\n");
-}
-function loadTakeObject(take){
- frames=validFrames(take);
- if(!frames.length)throw new Error("El JSON no contiene frames 3D completos.");
- duration=Number(take.duration||frames.at(-1).timestamp||0);
- playhead=0;
- const first=frames[0];
- firstHips=midpoint(mpv(first,"l_hip"),mpv(first,"r_hip"));
- const trackedTorso=Math.max(midpoint(mpv(first,"l_shoulder"),mpv(first,"r_shoulder")).distanceTo(firstHips),1e-4);
- let rigRef=1;
- if(bones.hips&&bones.head){
-  const a=new THREE.Vector3(),b=new THREE.Vector3();
-  bones.hips.getWorldPosition(a); bones.head.getWorldPosition(b);
-  rigRef=Math.max(a.distanceTo(b),1e-3);
- }
- rootScale=rigRef/Math.max(trackedTorso*2.2,1e-4);
- applyFrame(first); updateUi();
- statusEl.textContent="Listo · "+frames.length+" frames";
-}
-async function boot(){
- try{
-  statusEl.textContent="Cargando castor4.glb…";
-  model=(await new GLTFLoader().loadAsync(MODEL_URL)).scene;
-  skinnedMeshCount=0;
-  model.traverse(o=>{
-   if(o.isMesh){
-    o.castShadow=true;
-    o.receiveShadow=true;
-    o.frustumCulled=false;
-   }
-   if(o.isSkinnedMesh) skinnedMeshCount++;
-  });
-  scene.add(model);
-  bones=buildMap(model);
-  captureRest();
-  try{
-   skeletonHelper=new THREE.SkeletonHelper(model);
-   scene.add(skeletonHelper);
-  }catch(e){
-   console.warn("SkeletonHelper unavailable for this GLB",e);
-  }
-  updateDebug(); fitCamera(model);
-
-  statusEl.textContent="Cargando take…";
-  const take=await (await fetch(TAKE_URL,{cache:"no-store"})).json();
-  loadTakeObject(take);
-  statusEl.textContent+=" · SkinnedMesh: "+skinnedMeshCount;
- }catch(e){
-  console.error(e); statusEl.textContent="Error: "+(e.message||e);
- }
-}
-function updateUi(){
- scrubber.value=duration?String(playhead/duration):"0";
- timeLabel.textContent=playhead.toFixed(2)+" / "+duration.toFixed(2);
-}
-playBtn.onclick=()=>playing=true;
-pauseBtn.onclick=()=>playing=false;
-resetBtn.onclick=()=>{playing=false;playhead=0;applyFrame(frameAt(0));updateUi();};
-scrubber.oninput=()=>{playing=false;playhead=Number(scrubber.value)*duration;applyFrame(frameAt(playhead));updateUi();};
-jsonInput.onchange=async()=>{const f=jsonInput.files&&jsonInput.files[0];if(!f)return;try{loadTakeObject(JSON.parse(await f.text()));}catch(e){statusEl.textContent="Error JSON: "+e.message;}};
-
-function animate(){
- requestAnimationFrame(animate);
- const dt=clock.getDelta();
- if(playing&&duration){
-  playhead+=dt;
-  if(playhead>=duration){playhead=duration;playing=false;}
-  applyFrame(frameAt(playhead)); updateUi();
- }
- controls.update(); renderer.render(scene,camera);
-}
-addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-boot(); animate();
+function renderer(canvas){const r=new THREE.WebGLRenderer({canvas,antialias:true});r.setPixelRatio(Math.min(devicePixelRatio,2));return r}
+function scene(){const s=new THREE.Scene();s.background=new THREE.Color(0x0d1218);s.add(new THREE.HemisphereLight(0xffffff,0x2f3a48,1.35));const d=new THREE.DirectionalLight(0xffffff,1.5);d.position.set(4,6,3);s.add(d);s.add(new THREE.GridHelper(10,20,0x394450,0x1d252e));return s}
+function camera(){return new THREE.PerspectiveCamera(42,1,.01,200)}
+function orbit(cam,canvas){const o=new OrbitControls(cam,canvas);o.enableDamping=true;o.mouseButtons.LEFT=undefined;o.mouseButtons.MIDDLE=THREE.MOUSE.ROTATE;o.mouseButtons.RIGHT=THREE.MOUSE.PAN;return o}
+function readMap(){try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch{return {}}}
+function saveMap(){localStorage.setItem(STORE,JSON.stringify(mapping))}
+function mpv(f,k){const p=f.world_landmarks[MP[k]];return new THREE.Vector3(p.x,-p.z,-p.y)}
+function mid(a,b){return a.clone().add(b).multiplyScalar(.5)}
+function segs(f){const lS=mpv(f,"l_shoulder"),rS=mpv(f,"r_shoulder"),lH=mpv(f,"l_hip"),rH=mpv(f,"r_hip"),h=mid(lH,rH),s=mid(lS,rS),m=mid(h,s),n=mpv(f,"nose"),np=s.clone().lerp(n,.35),lh=mid(mpv(f,"l_index"),mpv(f,"l_pinky")),rh=mid(mpv(f,"r_index"),mpv(f,"r_pinky"));return {hips:[lH,rH],spine:[h,m],chest:[m,s],neck:[s,np],head:[np,n],l_upper_arm:[lS,mpv(f,"l_elbow")],r_upper_arm:[rS,mpv(f,"r_elbow")],l_forearm:[mpv(f,"l_elbow"),mpv(f,"l_wrist")],r_forearm:[mpv(f,"r_elbow"),mpv(f,"r_wrist")],l_hand:[mpv(f,"l_wrist"),lh],r_hand:[mpv(f,"r_wrist"),rh],l_thigh:[lH,mpv(f,"l_knee")],r_thigh:[rH,mpv(f,"r_knee")],l_shin:[mpv(f,"l_knee"),mpv(f,"l_ankle")],r_shin:[mpv(f,"r_knee"),mpv(f,"r_ankle")],l_foot:[mpv(f,"l_ankle"),mpv(f,"l_toe")],r_foot:[mpv(f,"r_ankle"),mpv(f,"r_toe")],l_toe:[mpv(f,"l_heel"),mpv(f,"l_toe")],r_toe:[mpv(f,"r_heel"),mpv(f,"r_toe")]}}
+function boneMesh(rad,mat){const m=new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,1,10),mat);m.userData.pick=true;return m}
+function place(m,a,b){const d=b.clone().sub(a),len=Math.max(d.length(),1e-5);m.position.copy(a.clone().add(b).multiplyScalar(.5));m.quaternion.setFromUnitVectors(Y,d.normalize());m.scale.set(1,len,1)}
+function ensureSource(){for(const k of ORDER){if(sourceMeshes.has(k))continue;const m=boneMesh(.022,sDef);m.userData.logical=k;sourceRoot.add(m);sourceMeshes.set(k,m)}}
+function updateSource(f){if(!f)return;ensureSource();const s=segs(f);for(const k of ORDER)place(sourceMeshes.get(k),s[k][0],s[k][1])}
+function buildTargetOverlay(){for(const m of targetMeshes.values())targetScene.remove(m);targetMeshes.clear();for(const b of targetBones){const m=boneMesh(.015,tDef);m.userData.target=b.name;targetScene.add(m);targetMeshes.set(b.name,m)}}
+function updateTargetOverlay(){const a=new THREE.Vector3(),b=new THREE.Vector3(),q=new THREE.Quaternion();for(const bone of targetBones){const m=targetMeshes.get(bone.name);bone.getWorldPosition(a);const child=bone.children.find(x=>x.isBone);if(child)child.getWorldPosition(b);else{bone.getWorldQuaternion(q);b.copy(a).add(new THREE.Vector3(0,.04,0).applyQuaternion(q))}place(m,a,b)}highlights()}
+function captureRest(){rest.clear();for(const k of ORDER){const bone=targetByName.get(mapping[k]);if(!bone)continue;const child=bone.children.find(x=>x.isBone);const dir=child&&child.position.lengthSq()>1e-8?child.position.clone().normalize():new THREE.Vector3(0,1,0);rest.set(k,{bone,quat:bone.quaternion.clone(),dir})}}
+function aim(k,world){const r=rest.get(k);if(!r||world.lengthSq()<1e-8)return;const pq=new THREE.Quaternion();if(r.bone.parent)r.bone.parent.getWorldQuaternion(pq);const local=world.clone().normalize().applyQuaternion(pq.invert()),delta=new THREE.Quaternion().setFromUnitVectors(r.dir.clone(),local);r.bone.quaternion.copy(r.quat).multiply(delta)}
+function applyFrame(f){if(!f||!model)return;updateSource(f);const lS=mpv(f,"l_shoulder"),rS=mpv(f,"r_shoulder"),lH=mpv(f,"l_hip"),rH=mpv(f,"r_hip"),s=mid(lS,rS),h=mid(lH,rH),hips=targetByName.get(mapping.hips);if(hips&&firstHips)hips.position.copy(h.clone().sub(firstHips).multiplyScalar(rootScale));const n=mpv(f,"nose");aim("spine",s.clone().sub(h));aim("chest",s.clone().sub(h));aim("neck",n.clone().sub(s));aim("head",n.clone().sub(s));aim("l_upper_arm",mpv(f,"l_elbow").sub(lS));aim("r_upper_arm",mpv(f,"r_elbow").sub(rS));aim("l_forearm",mpv(f,"l_wrist").sub(mpv(f,"l_elbow")));aim("r_forearm",mpv(f,"r_wrist").sub(mpv(f,"r_elbow")));aim("l_hand",mid(mpv(f,"l_index"),mpv(f,"l_pinky")).sub(mpv(f,"l_wrist")));aim("r_hand",mid(mpv(f,"r_index"),mpv(f,"r_pinky")).sub(mpv(f,"r_wrist")));aim("l_thigh",mpv(f,"l_knee").sub(lH));aim("r_thigh",mpv(f,"r_knee").sub(rH));aim("l_shin",mpv(f,"l_ankle").sub(mpv(f,"l_knee")));aim("r_shin",mpv(f,"r_ankle").sub(mpv(f,"r_knee")));aim("l_foot",mpv(f,"l_toe").sub(mpv(f,"l_ankle")));aim("r_foot",mpv(f,"r_toe").sub(mpv(f,"r_ankle")));aim("l_toe",mpv(f,"l_toe").sub(mpv(f,"l_heel")));aim("r_toe",mpv(f,"r_toe").sub(mpv(f,"r_heel"))}
+function valid(t){return (t.frames||[]).filter(f=>Array.isArray(f.world_landmarks)&&f.world_landmarks.length>=33)}
+function frameAt(t){if(!frames.length)return null;let lo=0,hi=frames.length-1;while(lo<hi){const m=(lo+hi)>>1;if(Number(frames[m].timestamp)<t)lo=m+1;else hi=m}return frames[lo]}
+function loadTake(t){frames=valid(t);if(!frames.length)throw new Error("JSON sin frames 3D completos");duration=Number(t.duration||frames.at(-1).timestamp||0);playhead=0;const f=frames[0];firstHips=mid(mpv(f,"l_hip"),mpv(f,"r_hip"));const tracked=Math.max(mid(mpv(f,"l_shoulder"),mpv(f,"r_shoulder")).distanceTo(firstHips),1e-4);let rr=1;const h=targetByName.get(mapping.hips),hd=targetByName.get(mapping.head);if(h&&hd){const a=new THREE.Vector3(),b=new THREE.Vector3();h.getWorldPosition(a);hd.getWorldPosition(b);rr=Math.max(a.distanceTo(b),1e-3)}rootScale=rr/Math.max(tracked*2.2,1e-4);captureRest();applyFrame(f);updateUI()}
+function renderSourceList(){sourceList.innerHTML="";for(const k of ORDER){const e=document.createElement("div");e.className="bone-row";e.dataset.logical=k;e.textContent=k+" → "+(mapping[k]||"SIN ASIGNAR");e.onclick=()=>selectSource(k);sourceList.appendChild(e)}}
+function renderTargetList(){targetList.innerHTML="";targetSelect.innerHTML="";for(const b of targetBones){const e=document.createElement("div");e.className="bone-row";e.dataset.target=b.name;e.textContent=b.name;e.onclick=()=>selectTarget(b.name);targetList.appendChild(e);const o=document.createElement("option");o.value=b.name;o.textContent=b.name;targetSelect.appendChild(o)}}
+function selectSource(k){selectedSource=k;selectedTarget=mapping[k]||null;if(selectedTarget)targetSelect.value=selectedTarget;selectedMapping.textContent=k+" → "+(mapping[k]||"SIN ASIGNAR");highlights();scrollSel()}
+function selectTarget(n){selectedTarget=n;targetSelect.value=n;selectedMapping.textContent=selectedSource+" → "+(mapping[selectedSource]||"SIN ASIGNAR")+" · elegido: "+n;highlights();scrollSel()}
+function assign(){if(!selectedSource)return;const n=targetSelect.value||selectedTarget;if(!n)return;mapping[selectedSource]=n;selectedTarget=n;saveMap();captureRest();renderSourceList();selectSource(selectedSource)}
+function highlights(){for(const [k,m] of sourceMeshes)m.material=k===selectedSource?sSel:sDef;const mapped=mapping[selectedSource];for(const [n,m] of targetMeshes)m.material=n===selectedTarget?tSel:n===mapped?tMap:tDef;document.querySelectorAll("#sourceBoneList .bone-row").forEach(e=>e.classList.toggle("selected",e.dataset.logical===selectedSource));document.querySelectorAll("#targetBoneList .bone-row").forEach(e=>{e.classList.toggle("target-selected",e.dataset.target===selectedTarget);e.classList.toggle("target-mapped",e.dataset.target===mapped)})}
+function esc(s){return window.CSS&&CSS.escape?CSS.escape(s):String(s).replace(/"/g,'\\"')}
+function scrollSel(){const s=document.querySelector('#sourceBoneList [data-logical="'+selectedSource+'"]');if(s)s.scrollIntoView({block:"nearest"});const n=selectedTarget||mapping[selectedSource];const t=n?document.querySelector('#targetBoneList [data-target="'+esc(n)+'"]'):null;if(t)t.scrollIntoView({block:"nearest"})}
+function pick(e,canvas,cam,objs,cb){if(e.button!==0)return;const r=canvas.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(pointer,cam);const hit=ray.intersectObjects(objs,false)[0];if(hit)cb(hit.object)}
+sourceCanvas.addEventListener("pointerdown",e=>pick(e,sourceCanvas,sourceCamera,[...sourceMeshes.values()],o=>o.userData.logical&&selectSource(o.userData.logical)));
+targetCanvas.addEventListener("pointerdown",e=>pick(e,targetCanvas,targetCamera,[...targetMeshes.values()],o=>o.userData.target&&selectTarget(o.userData.target)));
+function attachTransform(){const mode=transformMode.value;sourceTransform.setMode(mode);targetTransform.setMode(mode);const t=transformTarget.value;if(t==="source"){sourceTransform.visible=true;targetTransform.visible=false;sourceTransform.attach(sourceRoot);targetTransform.detach()}else if(t==="mesh"){sourceTransform.visible=false;targetTransform.visible=true;sourceTransform.detach();targetTransform.attach(modelRoot)}else{sourceTransform.visible=false;targetTransform.visible=true;sourceTransform.detach();if(rigRoot)targetTransform.attach(rigRoot)}}
+transformMode.onchange=attachTransform;transformTarget.onchange=attachTransform;window.addEventListener("keydown",e=>{if(["INPUT","SELECT","TEXTAREA"].includes(e.target?.tagName))return;const k=e.key.toLowerCase();if(k==="g"||k==="r"){transformMode.value=k==="g"?"translate":"rotate";attachTransform()}});
+assignBtn.onclick=assign;resetMappingBtn.onclick=()=>{mapping={...DEFAULT_MAP};saveMap();captureRest();renderSourceList();selectSource(selectedSource)};targetSelect.onchange=()=>selectTarget(targetSelect.value);
+playBtn.onclick=()=>playing=true;pauseBtn.onclick=()=>playing=false;resetBtn.onclick=()=>{playing=false;playhead=0;applyFrame(frameAt(0));updateUI()};scrubber.oninput=()=>{playing=false;playhead=Number(scrubber.value)*duration;applyFrame(frameAt(playhead));updateUI()};jsonInput.onchange=async()=>{const f=jsonInput.files?.[0];if(!f)return;try{loadTake(JSON.parse(await f.text()));status.textContent="Take cargado · "+frames.length+" frames"}catch(e){status.textContent="Error JSON: "+e.message}};
+function updateUI(){scrubber.value=duration?String(playhead/duration):"0";timeLabel.textContent=playhead.toFixed(2)+" / "+duration.toFixed(2)}
+function resize(r,canvas,cam){const q=canvas.getBoundingClientRect(),w=Math.max(1,Math.floor(q.width)),h=Math.max(1,Math.floor(q.height));r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+async function boot(){try{status.textContent="Cargando personaje skineado…";model=(await new GLTFLoader().loadAsync(MODEL_URL)).scene;modelRoot.add(model);let skinned=0;model.traverse(o=>{if(o.isSkinnedMesh)skinned++;if(o.isBone){targetBones.push(o);targetByName.set(o.name,o)}});targetBones.sort((a,b)=>a.name.localeCompare(b.name));rigRoot=targetByName.get("root")||targetByName.get("CC_Base_Hip")||targetBones[0];if(!targetBones.length)throw new Error("No encontré huesos");if(!skinned)throw new Error("No encontré SkinnedMesh");buildTargetOverlay();renderSourceList();renderTargetList();status.textContent="Cargando take…";loadTake(await (await fetch(TAKE_URL,{cache:"no-store"})).json());selectSource(selectedSource);attachTransform();status.textContent="Listo · "+frames.length+" frames · SkinnedMesh: "+skinned+" · huesos: "+targetBones.length}catch(e){console.error(e);status.textContent="Error: "+(e.message||e)}}
+function animate(){requestAnimationFrame(animate);const dt=clock.getDelta();if(playing&&duration){playhead+=dt;if(playhead>=duration){playhead=duration;playing=false}applyFrame(frameAt(playhead));updateUI()}updateTargetOverlay();sourceOrbit.update();targetOrbit.update();resize(sourceRenderer,sourceCanvas,sourceCamera);resize(targetRenderer,targetCanvas,targetCamera);sourceRenderer.render(sourceScene,sourceCamera);targetRenderer.render(targetScene,targetCamera)}
+boot();animate();
