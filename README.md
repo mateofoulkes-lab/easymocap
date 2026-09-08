@@ -1,6 +1,6 @@
 # EasyMocap 2
 
-EasyMocap 2 es una web mobile-first para capturar actuaciones por capas sincronizadas contra un mismo audio.
+Web mobile-first para capturar actuaciones por capas sincronizadas contra un mismo audio.
 
 ## EM2 Spec v1
 
@@ -21,12 +21,11 @@ Root, Hips, Spine, Chest, Neck, Head, Shoulder_L, UpperArm_L, LowerArm_L, Hand_L
 - EM2_MouthCorner_L / EM2_MouthCorner_R (0=frown, 0.5=neutral, 1=smile)
 
 ## Arquitectura
-
-- `core/`: contrato y utilidades independientes del tracker.
-- recorder Body y Face comparten audio/timeline, pero generan takes separados.
+- `core/`: contrato EM2 independiente del tracker.
+- `tracking/`: adaptadores de computer vision.
+- Body y Face generan takes separados sobre el mismo audio/timeline.
 - Viewer combinará audio + body take + face take + personaje GLB.
-- La versión EasyMocap anterior está preservada en `old/`.
+- EasyMocap v1 está preservado en `old/`.
 
 ## Estado
-
-v0.1.0: base limpia, mobile-first, audio, cámara, countdown, timeline exportable y manejo visible de errores. Sin service worker durante esta etapa para evitar caché obsoleta.
+v0.2.0: Pose Landmarker + Hand Landmarker (MediaPipe Tasks Vision 1.0.1), preview de esqueleto/manos, Body take con huesos normalizados, confianza, root screen/scale y canales de apertura de manos/índice. Sin service worker durante desarrollo.

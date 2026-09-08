@@ -1,9 +1,4 @@
-:root{
-  color-scheme:dark;
-  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  background:#0b0d11;
-  color:#f4f5f7;
-}
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0d11;color:#f4f5f7}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:linear-gradient(180deg,#11151c,#090b0f)}
 button,input{font:inherit}
@@ -11,28 +6,17 @@ button,.file-button{border:1px solid #303744;background:#1a2029;color:#fff;borde
 button:disabled{opacity:.45;cursor:not-allowed}
 button.primary{background:#f1f3f5;color:#101216;font-weight:800;border-color:#fff;width:100%;font-size:1.05rem}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px max(18px,env(safe-area-inset-right)) 12px max(18px,env(safe-area-inset-left));max-width:920px;margin:auto}
-.topbar h1{font-size:1.3rem;margin:0}
-.topbar p{margin:.2rem 0 0;color:#8f9aaa;font-size:.85rem}
+.topbar h1{font-size:1.3rem;margin:0}.topbar p{margin:.2rem 0 0;color:#8f9aaa;font-size:.85rem}
 .version{font:700 .8rem ui-monospace,SFMono-Regular,Menlo,monospace;color:#9ba7b8}
 .shell{max-width:920px;margin:auto;padding:10px 16px 40px;display:grid;gap:14px}
 .card{background:#131820;border:1px solid #242c38;border-radius:18px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.22)}
-.mode-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.mode.active{background:#f1f3f5;color:#111;font-weight:800}
+.mode-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.mode.active{background:#f1f3f5;color:#111;font-weight:800}
 .stage{position:relative;overflow:hidden;background:#06080b;border-radius:14px;aspect-ratio:3/4;max-height:68vh;display:grid;place-items:center}
-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-.placeholder{color:#707b8c}
-.countdown{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.38);font-size:min(35vw,12rem);font-weight:900;text-shadow:0 8px 35px #000}
-.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.file-button{display:grid;place-items:center;text-align:center}
-.file-button input{display:none}
-.audio-row{margin:10px 0;display:grid;gap:5px}
-audio{width:100%}
-.muted{color:#8f9aaa;font-size:.86rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.status-card h2{font-size:1rem;margin:.1rem 0 .7rem}
-.status{color:#b7c0cc}
-.error-panel{margin-top:10px;padding:10px;border:1px solid #7f3540;border-radius:10px;background:#2b1519;color:#ffd6da}
-.error-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:.5rem 0 0;font-size:.78rem}
-@media(min-width:760px){
-  .shell{grid-template-columns:minmax(0,2fr) minmax(260px,1fr);align-items:start}
-  .stage{aspect-ratio:16/10}
-}
+video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+video{transform:scaleX(-1)}canvas{pointer-events:none}
+.placeholder{color:#707b8c;z-index:2}.countdown{position:absolute;z-index:3;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.38);font-size:min(35vw,12rem);font-weight:900;text-shadow:0 8px 35px #000}
+.tracking-strip{display:flex;justify-content:space-between;gap:10px;padding:8px 3px 0;font:700 .76rem ui-monospace,SFMono-Regular,Menlo,monospace;color:#aab5c5}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.file-button{display:grid;place-items:center;text-align:center}.file-button input{display:none}
+.audio-row{margin:10px 0;display:grid;gap:5px}audio{width:100%}.muted{color:#8f9aaa;font-size:.86rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status-card h2{font-size:1rem;margin:.1rem 0 .7rem}.status{color:#b7c0cc}.error-panel{margin-top:10px;padding:10px;border:1px solid #7f3540;border-radius:10px;background:#2b1519;color:#ffd6da}.error-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:.5rem 0 0;font-size:.78rem}
+@media(min-width:760px){.shell{grid-template-columns:minmax(0,2fr) minmax(260px,1fr);align-items:start}.stage{aspect-ratio:16/10}}
