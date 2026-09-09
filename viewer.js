@@ -1,19 +1,19 @@
-import { loadLatestSession, clearLatestSession } from "./core/session-store.js?v=0.5.7";
+import { loadLatestSession, clearLatestSession } from "./core/session-store.js?v=0.5.8";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { BODY_BONES,HAND_CHANNELS,MODEL_FACE_SHAPES,BODY_ROTATION_FORMAT,assertTake } from "./core/spec.js?v=0.5.7";
+import { BODY_BONES,HAND_CHANNELS,MODEL_FACE_SHAPES,BODY_ROTATION_FORMAT,assertTake } from "./core/spec.js?v=0.5.8";
 
 const $=id=>document.getElementById(id);
 const ui={
   viewport:$("viewport"),modelInput:$("modelInput"),bodyInput:$("bodyInput"),faceInput:$("faceInput"),audioInput:$("audioInput"),
   audio:$("audio"),playButton:$("playButton"),scrub:$("scrub"),timeLabel:$("timeLabel"),summary:$("summary"),
   validation:$("validation"),errorPanel:$("errorPanel"),errorText:$("errorText"),
-  sessionStatus:$("sessionStatus"),clearSessionButton:$("clearSessionButton")
+  sessionStatus:$("sessionStatus"),clearSessionButton:$("clearSessionButton"),bodyGain:$("bodyGain"),bodyGainValue:$("bodyGainValue")
 };
 
 let modelRoot=null,bodyTake=null,faceTake=null,audioUrl=null,boneMap=new Map(),morphMeshes=[],restLocal=new Map(),restWorld=new Map(),bodyReference=new Map(),bodyDirectionReference=new Map();
-let playing=false,playhead=0,internalStartTime=0,internalStartPerf=0;
+let playing=false,playhead=0,internalStartTime=0,internalStartPerf=0,bodyGain=1.55;
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x07090c);
@@ -124,6 +124,12 @@ ui.scrub.addEventListener("input",()=>{
     internalStartTime=playhead;
     internalStartPerf=performance.now();
   }
+});
+
+ui.bodyGain.addEventListener("input",()=>{
+  bodyGain=Number(ui.bodyGain.value)||1;
+  ui.bodyGainValue.textContent=`${bodyGain.toFixed(2)}×`;
+  applyAt(playhead);
 });
 
 ui.clearSessionButton.addEventListener("click",async()=>{
@@ -352,7 +358,11 @@ function applyDirectionBone(name,currentDirection){
   if(!bone||!ref||!rest||!currentDirection)return;
 
   const swing=new THREE.Quaternion().setFromUnitVectors(ref,currentDirection);
-  const desiredWorld=rest.clone().premultiply(swing).normalize();
+  const angle=2*Math.acos(THREE.MathUtils.clamp(swing.w,-1,1));
+  let axis=new THREE.Vector3(swing.x,swing.y,swing.z);
+  if(axis.lengthSq()<1e-10)axis.set(1,0,0);else axis.normalize();
+  const amplified=new THREE.Quaternion().setFromAxisAngle(axis,Math.min(Math.PI*0.98,angle*bodyGain));
+  const desiredWorld=rest.clone().premultiply(amplified).normalize();
 
   const parent=bone.parent;
   const parentWorld=parent?parent.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
@@ -479,6 +489,8 @@ function animate(){
 resize();
 animate();
 ui.summary.textContent="Cargando castor_em2.glb…";
-loadModel("./castor_em2.glb?v=0.5.7")
+loadModel("./castor_em2.glb?v=0.5.8")
   .then(loadTemporarySession)
   .catch(e=>{ui.summary.textContent="No pude cargar el modelo de referencia.";showError(e)});
+
+ui.bodyGain.value=String(bodyGain);ui.bodyGainValue.textContent=`${bodyGain.toFixed(2)}×`;
