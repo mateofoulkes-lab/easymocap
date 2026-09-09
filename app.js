@@ -1,9 +1,9 @@
-import { saveLatestTake } from "./core/session-store.js?v=0.5.8";
-import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.8";
-import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.8";
-import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.8";
+import { saveLatestTake } from "./core/session-store.js?v=0.5.9";
+import { createTake, BODY_ROTATION_FORMAT } from "./core/spec.js?v=0.5.9";
+import { BodyTracker } from "./tracking/body-tracker.js?v=0.5.9";
+import { FaceTracker } from "./tracking/face-tracker.js?v=0.5.9";
 
-const APP_VERSION="0.5.8";
+const APP_VERSION="0.5.9";
 const $=(id)=>document.getElementById(id);
 const ui={
   camera:$("camera"),overlay:$("overlay"),cameraPlaceholder:$("cameraPlaceholder"),
@@ -192,14 +192,14 @@ function storeBodyFrame(frame){
   if(!currentTake||mode!=="body")return;
   const t=ui.audio.currentTime;if(!Number.isFinite(t)||t<0||Math.abs(t-lastFrameStoredAt)<.015)return;lastFrameStoredAt=t;
 
-  bodyRotationSmooth.root=smoothQuat(bodyRotationSmooth.root,frame.root.rotation,.65);
+  bodyRotationSmooth.root=smoothQuat(bodyRotationSmooth.root,frame.root.rotation,.82);
   const bones={};
   for(const [name,bone] of Object.entries(frame.bones)){
-    bodyRotationSmooth.bones[name]=smoothQuat(bodyRotationSmooth.bones[name],bone.rotation,.65);
+    bodyRotationSmooth.bones[name]=smoothQuat(bodyRotationSmooth.bones[name],bone.rotation,.82);
     let dir=bone.direction;
     if(dir){
       const prev=bodyDirectionSmooth[name];
-      if(prev)dir=prev.map((x,i)=>x+(dir[i]-x)*.68);
+      if(prev)dir=prev.map((x,i)=>x+(dir[i]-x)*.88);
       const dl=Math.hypot(...dir)||1;
       dir=dir.map(x=>x/dl);
       bodyDirectionSmooth[name]=dir;
